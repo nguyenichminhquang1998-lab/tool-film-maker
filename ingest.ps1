@@ -64,7 +64,9 @@ function Send-TelegramMessage {
     if (-not $Token -or -not $ChatId) { return }
     try {
         $uri = "https://api.telegram.org/bot$($Token)/sendMessage"
-        Invoke-RestMethod -Uri $uri -Method Post -Body @{ chat_id = $ChatId; text = $Text } | Out-Null
+        $payload = @{ chat_id = $ChatId; text = $Text } | ConvertTo-Json -Compress
+        $bodyBytes = [System.Text.Encoding]::UTF8.GetBytes($payload)
+        Invoke-RestMethod -Uri $uri -Method Post -ContentType 'application/json; charset=utf-8' -Body $bodyBytes | Out-Null
     }
     catch {
         Write-Warning "Khong gui duoc Telegram: $($_.Exception.Message)"
