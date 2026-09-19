@@ -353,7 +353,7 @@ function Publish-ToCloud {
         $remoteTarget = "$($remote):MediaBackup/$remotePathSuffix"
         Write-Host "Dang upload len $remoteTarget ..."
         $rcloneLog = "$($LogFile).rclone.$($remote).log"
-        & rclone copy $ArchivePath $remoteTarget --progress --retries 5 --low-level-retries 10 --log-file="$rcloneLog" --log-level INFO
+        & rclone copy $ArchivePath $remoteTarget --retries 5 --low-level-retries 10 --log-file="$rcloneLog" --log-level INFO | Out-Null
         if ($LASTEXITCODE -ne 0) {
             throw "rclone upload len '$remote' that bai (exit code $LASTEXITCODE). Xem $rcloneLog"
         }
