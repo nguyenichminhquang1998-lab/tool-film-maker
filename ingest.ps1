@@ -118,10 +118,13 @@ function New-ProjectFolder {
     Write-Host "Da tao/kiem tra thu muc du an: $projectFolder"
 
     return [PSCustomObject]@{
-        ProjectFolder = $projectFolder
-        PhotoFolder   = $photoFolder
-        VideoFolder   = $videoFolder
-        MusicFolder   = $musicFolder
+        ProjectFolder     = $projectFolder
+        PhotoFolder       = $photoFolder
+        VideoFolder       = $videoFolder
+        MusicFolder       = $musicFolder
+        Year              = $year
+        MonthFolder       = $monthFolder
+        ProjectFolderName = $projectFolderName
     }
 }
 
@@ -332,7 +335,7 @@ function Publish-ToCloud {
     if ($Dest -eq 'onedrive' -or $Dest -eq 'both') { $targets += $Config.rcloneRemotes.onedrive }
 
     $archiveItem = Get-Item -LiteralPath $ArchivePath
-    $remotePathSuffix = Split-Path $Paths.ProjectFolder -Leaf
+    $remoteRelativePath = "$($Config.cloudRootFolder)/$($Paths.Year)/$($Paths.MonthFolder)/$($Paths.ProjectFolderName)"
     $results = @()
 
     foreach ($remote in $targets) {
@@ -350,7 +353,7 @@ function Publish-ToCloud {
             Write-Warning "Khong kiem tra duoc dung luong trong cua remote '$remote' - tiep tuc upload."
         }
 
-        $remoteTarget = "$($remote):MediaBackup/$remotePathSuffix"
+        $remoteTarget = "$($remote):$remoteRelativePath"
         Write-Host "Dang upload len $remoteTarget ..."
         $rcloneLog = "$($LogFile).rclone.$($remote).log"
         & rclone copy $ArchivePath $remoteTarget --retries 5 --low-level-retries 10 --log-file="$rcloneLog" --log-level INFO | Out-Null

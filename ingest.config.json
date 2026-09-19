@@ -18,6 +18,7 @@
     "drive": "gdrive",
     "onedrive": "onedrive"
   },
+  "cloudRootFolder": "Quang",
   "archive": {
     "tool": "7z",
     "storeOnly": true,
