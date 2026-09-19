@@ -276,11 +276,11 @@ function Compress-RawFootage {
 
     $stdOutLog = "$($LogFile).7z.out.log"
     $stdErrLog = "$($LogFile).7z.err.log"
-    $proc = Start-Process -FilePath $sevenZipPath -ArgumentList $sevenZipArgs -NoNewWindow -Wait -PassThru `
-        -RedirectStandardOutput $stdOutLog -RedirectStandardError $stdErrLog
+    & $sevenZipPath @sevenZipArgs 1> $stdOutLog 2> $stdErrLog
+    $sevenZipExitCode = $LASTEXITCODE
 
-    if ($proc.ExitCode -ne 0) {
-        throw "7-Zip loi (exit code $($proc.ExitCode)). Xem $stdErrLog"
+    if ($sevenZipExitCode -ne 0) {
+        throw "7-Zip loi (exit code $sevenZipExitCode). Xem $stdErrLog"
     }
 
     $archiveItem = Get-Item -LiteralPath $archivePath
