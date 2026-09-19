@@ -69,7 +69,19 @@ function Send-TelegramMessage {
         Invoke-RestMethod -Uri $uri -Method Post -ContentType 'application/json; charset=utf-8' -Body $bodyBytes | Out-Null
     }
     catch {
-        Write-Warning "Khong gui duoc Telegram: $($_.Exception.Message)"
+        $detail = $_.Exception.Message
+        if ($_.ErrorDetails -and $_.ErrorDetails.Message) {
+            $detail = $_.ErrorDetails.Message
+        }
+        elseif ($_.Exception.Response) {
+            try {
+                $stream = $_.Exception.Response.GetResponseStream()
+                $reader = New-Object System.IO.StreamReader($stream)
+                $detail = $reader.ReadToEnd()
+            }
+            catch { }
+        }
+        Write-Warning "Khong gui duoc Telegram: $detail"
     }
 }
 
