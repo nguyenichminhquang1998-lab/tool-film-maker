@@ -1,0 +1,28 @@
+{
+  "basePath": "D:\\Quang",
+  "monthFolderPrefix": "tháng ",
+  "subfolders": {
+    "photo": "ảnh",
+    "video": "gốc",
+    "music": "music"
+  },
+  "photoExtensions": [
+    ".jpg", ".jpeg", ".png", ".heic",
+    ".cr2", ".cr3", ".arw", ".nef", ".dng", ".raf", ".orf", ".rw2"
+  ],
+  "videoExtensions": [
+    ".mp4", ".mov", ".mxf", ".braw", ".avi", ".mts", ".m2ts", ".insv"
+  ],
+  "unknownExtensionFallback": "video",
+  "rcloneRemotes": {
+    "drive": "gdrive",
+    "onedrive": "onedrive"
+  },
+  "archive": {
+    "tool": "7z",
+    "storeOnly": true,
+    "format": "7z"
+  },
+  "cloudFreeSpaceWarningGB": 20,
+  "logFolderName": "_ingest_logs"
+}

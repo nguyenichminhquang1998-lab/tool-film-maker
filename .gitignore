@@ -1,0 +1,3 @@
+ingest.secrets.json
+*.log
+_ingest_logs/
