@@ -1,5 +1,8 @@
 <#
 Giao dien cua so (GUI) cho pipeline do the - khong can go lenh.
+Tu dong nhan dien the nho khi cam vao, hien so file/dung luong va
+uoc tinh thoi gian truoc khi bat dau.
+
 Dung chung logic voi ingest.ps1 qua ingest.functions.ps1.
 
 Chay: double-click IngestApp.exe (sau khi dong goi bang ps2exe, xem README)
@@ -19,13 +22,19 @@ $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $configPath = Join-Path $scriptRoot 'ingest.config.json'
 $secretsPath = Join-Path $scriptRoot 'ingest.secrets.json'
 
+$Config = Get-JsonFile -Path $configPath
+if (-not $Config) {
+    [System.Windows.Forms.MessageBox]::Show("Khong tim thay ingest.config.json canh script.", "Loi", 'OK', 'Error') | Out-Null
+    exit 1
+}
+
 # ============================================================
 # Xay giao dien
 # ============================================================
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'Do the tu dong - tool-film-maker'
-$form.Size = New-Object System.Drawing.Size(620, 600)
+$form.Size = New-Object System.Drawing.Size(620, 680)
 $form.StartPosition = 'CenterScreen'
 $form.FormBorderStyle = 'FixedSingle'
 $form.MaximizeBox = $false
@@ -54,34 +63,35 @@ $cmbDrive.Size = New-Object System.Drawing.Size(300, 24)
 $cmbDrive.DropDownStyle = 'DropDownList'
 $form.Controls.Add($cmbDrive)
 
-function Update-DriveList {
-    $cmbDrive.Items.Clear()
-    try {
-        $drives = Get-CimInstance -ClassName Win32_LogicalDisk -ErrorAction Stop |
-            Where-Object { $_.DriveType -eq 2 -or $_.DriveType -eq 3 }
-        foreach ($d in $drives) {
-            $volName = if ($d.VolumeName) { $d.VolumeName } else { '(khong ten)' }
-            $sizeGB = if ($d.Size) { [Math]::Round($d.Size / 1GB, 1) } else { 0 }
-            [void]$cmbDrive.Items.Add("$($d.DeviceID)\  -  $volName ($sizeGB GB)")
-        }
-    }
-    catch {
-        Write-Warning "Khong quet duoc danh sach o dia: $($_.Exception.Message)"
-    }
-    if ($cmbDrive.Items.Count -gt 0) { $cmbDrive.SelectedIndex = 0 }
-}
-Update-DriveList
-
 $btnRefreshDrive = New-Object System.Windows.Forms.Button
 $btnRefreshDrive.Text = 'Lam moi'
 $btnRefreshDrive.Location = New-Object System.Drawing.Point(460, 55)
 $btnRefreshDrive.Size = New-Object System.Drawing.Size(120, 26)
-$btnRefreshDrive.Add_Click({ Update-DriveList })
 $form.Controls.Add($btnRefreshDrive)
+
+$lblCardInfo = New-Object System.Windows.Forms.Label
+$lblCardInfo.Text = 'Cam the nho vao de tu dong quet, hoac chon o dia roi bam "Quet lai".'
+$lblCardInfo.Location = New-Object System.Drawing.Point(20, 96)
+$lblCardInfo.Size = New-Object System.Drawing.Size(440, 20)
+$lblCardInfo.ForeColor = [System.Drawing.Color]::FromArgb(60, 60, 60)
+$form.Controls.Add($lblCardInfo)
+
+$btnScanAgain = New-Object System.Windows.Forms.Button
+$btnScanAgain.Text = 'Quet lai'
+$btnScanAgain.Location = New-Object System.Drawing.Point(460, 93)
+$btnScanAgain.Size = New-Object System.Drawing.Size(120, 24)
+$form.Controls.Add($btnScanAgain)
+
+$lblEta = New-Object System.Windows.Forms.Label
+$lblEta.Text = ''
+$lblEta.Location = New-Object System.Drawing.Point(20, 120)
+$lblEta.Size = New-Object System.Drawing.Size(560, 20)
+$lblEta.ForeColor = [System.Drawing.Color]::FromArgb(0, 90, 158)
+$form.Controls.Add($lblEta)
 
 $grpDest = New-Object System.Windows.Forms.GroupBox
 $grpDest.Text = 'Upload len'
-$grpDest.Location = New-Object System.Drawing.Point(20, 96)
+$grpDest.Location = New-Object System.Drawing.Point(20, 150)
 $grpDest.Size = New-Object System.Drawing.Size(560, 50)
 $form.Controls.Add($grpDest)
 
@@ -109,11 +119,10 @@ $chkSkipUpload.Text = 'Chi copy + nen, khong upload (khong co mang)'
 $chkSkipUpload.Location = New-Object System.Drawing.Point(410, 22)
 $chkSkipUpload.AutoSize = $true
 $grpDest.Controls.Add($chkSkipUpload)
-$grpDest.Size = New-Object System.Drawing.Size(560, 50)
 
 $btnStart = New-Object System.Windows.Forms.Button
 $btnStart.Text = 'Bat dau do the'
-$btnStart.Location = New-Object System.Drawing.Point(20, 156)
+$btnStart.Location = New-Object System.Drawing.Point(20, 210)
 $btnStart.Size = New-Object System.Drawing.Size(560, 42)
 $btnStart.Font = New-Object System.Drawing.Font($btnStart.Font.FontFamily, 12, [System.Drawing.FontStyle]::Bold)
 $btnStart.BackColor = [System.Drawing.Color]::FromArgb(46, 125, 50)
@@ -121,7 +130,7 @@ $btnStart.ForeColor = [System.Drawing.Color]::White
 $form.Controls.Add($btnStart)
 
 $progressBar = New-Object System.Windows.Forms.ProgressBar
-$progressBar.Location = New-Object System.Drawing.Point(20, 208)
+$progressBar.Location = New-Object System.Drawing.Point(20, 262)
 $progressBar.Size = New-Object System.Drawing.Size(560, 18)
 $progressBar.Style = 'Marquee'
 $progressBar.MarqueeAnimationSpeed = 0
@@ -129,7 +138,7 @@ $form.Controls.Add($progressBar)
 
 $lblLog = New-Object System.Windows.Forms.Label
 $lblLog.Text = 'Nhat ky:'
-$lblLog.Location = New-Object System.Drawing.Point(20, 234)
+$lblLog.Location = New-Object System.Drawing.Point(20, 288)
 $lblLog.AutoSize = $true
 $form.Controls.Add($lblLog)
 
@@ -137,7 +146,7 @@ $txtLog = New-Object System.Windows.Forms.TextBox
 $txtLog.Multiline = $true
 $txtLog.ScrollBars = 'Vertical'
 $txtLog.ReadOnly = $true
-$txtLog.Location = New-Object System.Drawing.Point(20, 256)
+$txtLog.Location = New-Object System.Drawing.Point(20, 310)
 $txtLog.Size = New-Object System.Drawing.Size(560, 280)
 $txtLog.Font = New-Object System.Drawing.Font('Consolas', 9)
 $txtLog.BackColor = [System.Drawing.Color]::Black
@@ -146,12 +155,144 @@ $form.Controls.Add($txtLog)
 
 $lblStatus = New-Object System.Windows.Forms.Label
 $lblStatus.Text = 'San sang.'
-$lblStatus.Location = New-Object System.Drawing.Point(20, 545)
+$lblStatus.Location = New-Object System.Drawing.Point(20, 600)
 $lblStatus.AutoSize = $true
 $form.Controls.Add($lblStatus)
 
 # ============================================================
-# Chay pipeline tren luong nen (khong lam dong cua so)
+# Quet danh sach o dia + tu dong nhan dien the moi cam vao
+# ============================================================
+
+function Get-RemovableDriveIds {
+    try {
+        return @(Get-CimInstance -ClassName Win32_LogicalDisk -ErrorAction Stop |
+            Where-Object { $_.DriveType -eq 2 -or $_.DriveType -eq 3 } |
+            Select-Object -ExpandProperty DeviceID)
+    }
+    catch {
+        return @()
+    }
+}
+
+function Update-DriveList {
+    $cmbDrive.Items.Clear()
+    try {
+        $drives = Get-CimInstance -ClassName Win32_LogicalDisk -ErrorAction Stop |
+            Where-Object { $_.DriveType -eq 2 -or $_.DriveType -eq 3 }
+        foreach ($d in $drives) {
+            $volName = if ($d.VolumeName) { $d.VolumeName } else { '(khong ten)' }
+            $sizeGB = if ($d.Size) { [Math]::Round($d.Size / 1GB, 1) } else { 0 }
+            [void]$cmbDrive.Items.Add("$($d.DeviceID)\  -  $volName ($sizeGB GB)")
+        }
+    }
+    catch {
+        Write-Warning "Khong quet duoc danh sach o dia: $($_.Exception.Message)"
+    }
+    if ($cmbDrive.Items.Count -gt 0) { $cmbDrive.SelectedIndex = 0 }
+}
+Update-DriveList
+$script:knownDriveIds = Get-RemovableDriveIds
+
+# ============================================================
+# Quet nhanh 1 the (chi doc) tren luong nen - hien so file/dung luong/ETA
+# ============================================================
+
+$scanSyncHash = [hashtable]::Synchronized(@{
+    IsRunning    = $false
+    IsDone       = $false
+    Summary      = $null
+    ErrorMessage = $null
+})
+$script:scanPs = $null
+$script:scanHandle = $null
+$script:scanRunspace = $null
+$script:lastCardSummary = $null
+
+function Get-SelectedDest {
+    if ($radDrive.Checked) { return 'drive' }
+    if ($radOnedrive.Checked) { return 'onedrive' }
+    return 'both'
+}
+
+function Update-EtaDisplay {
+    if (-not $script:lastCardSummary) { return }
+    $etaSec = Get-EstimatedDurationSeconds -Summary $script:lastCardSummary -Config $Config -Dest (Get-SelectedDest)
+    $etaMin = [Math]::Round($etaSec / 60, 1)
+    $lblEta.Text = "Uoc tinh thoi gian: ~$etaMin phut (gia dinh toc do doc the/mang, co the chenh lech nhieu tuy thuc te)"
+}
+
+function Start-CardScan {
+    param([string]$CardDrivePath)
+
+    if ($scanSyncHash.IsRunning -or $syncHash.IsRunning) { return }
+
+    $scanSyncHash.IsRunning = $true
+    $scanSyncHash.IsDone = $false
+    $scanSyncHash.Summary = $null
+    $scanSyncHash.ErrorMessage = $null
+
+    $lblCardInfo.Text = "Dang quet the ($CardDrivePath)..."
+    $lblEta.Text = ''
+
+    $runspace = [runspacefactory]::CreateRunspace()
+    $runspace.Open()
+    $runspace.SessionStateProxy.SetVariable('scanSyncHash', $scanSyncHash)
+    $runspace.SessionStateProxy.SetVariable('scriptRoot', $scriptRoot)
+    $runspace.SessionStateProxy.SetVariable('cardDrivePath', $CardDrivePath)
+
+    $ps = [powershell]::Create()
+    $ps.Runspace = $runspace
+    [void]$ps.AddScript({
+        . (Join-Path $scriptRoot 'ingest.functions.ps1')
+        try {
+            $Config = Get-JsonFile -Path (Join-Path $scriptRoot 'ingest.config.json')
+            $summary = Get-CardSummary -CardDrive $cardDrivePath -Config $Config
+            $scanSyncHash.Summary = $summary
+        }
+        catch {
+            $scanSyncHash.ErrorMessage = $_.Exception.Message
+        }
+        finally {
+            $scanSyncHash.IsDone = $true
+            $scanSyncHash.IsRunning = $false
+        }
+    })
+
+    $script:scanPs = $ps
+    $script:scanHandle = $ps.BeginInvoke()
+    $script:scanRunspace = $runspace
+}
+
+function Get-DrivePathFromComboLabel {
+    param([string]$Label)
+    return (($Label -split '\\')[0] + '\')
+}
+
+$btnRefreshDrive.Add_Click({
+    Update-DriveList
+    $script:knownDriveIds = Get-RemovableDriveIds
+})
+
+$btnScanAgain.Add_Click({
+    if ($null -eq $cmbDrive.SelectedItem) {
+        [System.Windows.Forms.MessageBox]::Show('Chon o dia the nho truoc.', 'Thieu thong tin', 'OK', 'Warning') | Out-Null
+        return
+    }
+    Start-CardScan -CardDrivePath (Get-DrivePathFromComboLabel -Label ([string]$cmbDrive.SelectedItem))
+})
+
+$cmbDrive.Add_SelectedIndexChanged({
+    if ($cmbDrive.SelectedItem) {
+        Start-CardScan -CardDrivePath (Get-DrivePathFromComboLabel -Label ([string]$cmbDrive.SelectedItem))
+    }
+})
+
+$radDrive.Add_CheckedChanged({ Update-EtaDisplay })
+$radOnedrive.Add_CheckedChanged({ Update-EtaDisplay })
+$radBoth.Add_CheckedChanged({ Update-EtaDisplay })
+
+# ============================================================
+# Chay pipeline that tren luong nen (khong lam dong cua so)
 # ============================================================
 
 $syncHash = [hashtable]::Synchronized(@{
@@ -179,10 +320,9 @@ $btnStart.Add_Click({
         return
     }
 
-    $selectedDriveLabel = [string]$cmbDrive.SelectedItem
-    $cardDrive = ($selectedDriveLabel -split '\\')[0] + '\'
+    $cardDrive = Get-DrivePathFromComboLabel -Label ([string]$cmbDrive.SelectedItem)
     $projectName = $txtProject.Text.Trim()
-    $dest = if ($radDrive.Checked) { 'drive' } elseif ($radOnedrive.Checked) { 'onedrive' } else { 'both' }
+    $dest = Get-SelectedDest
     $skipUpload = $chkSkipUpload.Checked
 
     $syncHash.IsRunning = $true
@@ -290,7 +430,7 @@ $btnStart.Add_Click({
 })
 
 # ============================================================
-# Timer: doc log tu luong nen, cap nhat giao dien
+# Timer 1: doc log tu luong nen chay pipeline, cap nhat giao dien
 # ============================================================
 
 $timer = New-Object System.Windows.Forms.Timer
@@ -318,10 +458,7 @@ $timer.Add_Tick({
         }
 
         if ($script:currentPs) {
-            try {
-                $script:currentPs.EndInvoke($script:currentHandle)
-            }
-            catch { }
+            try { $script:currentPs.EndInvoke($script:currentHandle) } catch { }
             $script:currentPs.Dispose()
             $script:currentRunspace.Close()
             $script:currentPs = $null
@@ -329,6 +466,54 @@ $timer.Add_Tick({
         }
 
         $syncHash.IsDone = $false
+    }
+
+    # ---- ket qua quet the (neu co) ----
+    if ($scanSyncHash.IsDone) {
+        if ($scanSyncHash.Summary) {
+            $s = $scanSyncHash.Summary
+            $totalGB = [Math]::Round($s.TotalBytes / 1GB, 2)
+            if ($s.FileCount -eq 0) {
+                $lblCardInfo.Text = 'The nho trong, khong co file nao.'
+                $lblEta.Text = ''
+                $script:lastCardSummary = $null
+            }
+            else {
+                $lblCardInfo.Text = "The nho: $($s.FileCount) file ($($s.PhotoCount) anh, $($s.VideoCount) video) - $totalGB GB"
+                $script:lastCardSummary = $s
+                Update-EtaDisplay
+            }
+        }
+        else {
+            $lblCardInfo.Text = "Loi quet the: $($scanSyncHash.ErrorMessage)"
+            $lblEta.Text = ''
+            $script:lastCardSummary = $null
+        }
+
+        if ($script:scanPs) {
+            try { $script:scanPs.EndInvoke($script:scanHandle) } catch { }
+            $script:scanPs.Dispose()
+            $script:scanRunspace.Close()
+            $script:scanPs = $null
+            $script:scanRunspace = $null
+        }
+        $scanSyncHash.IsDone = $false
+    }
+
+    # ---- tu dong nhan dien the moi cam vao ----
+    if (-not $syncHash.IsRunning -and -not $scanSyncHash.IsRunning) {
+        $currentDrives = Get-RemovableDriveIds
+        $newDrives = @($currentDrives | Where-Object { $script:knownDriveIds -notcontains $_ })
+        if ($newDrives.Count -gt 0) {
+            Update-DriveList
+            $matchLabel = $cmbDrive.Items | Where-Object { $_ -like "$($newDrives[0])*" } | Select-Object -First 1
+            if ($matchLabel) {
+                $cmbDrive.SelectedItem = $matchLabel
+            }
+            $lblStatus.Text = "Phat hien the nho moi: $($newDrives[0])"
+            Start-CardScan -CardDrivePath "$($newDrives[0])\"
+        }
+        $script:knownDriveIds = $currentDrives
     }
 })
 $timer.Start()
@@ -343,5 +528,9 @@ $form.Add_FormClosing({
         }
     }
 })
+
+if ($cmbDrive.SelectedItem) {
+    Start-CardScan -CardDrivePath (Get-DrivePathFromComboLabel -Label ([string]$cmbDrive.SelectedItem))
+}
 
 [void]$form.ShowDialog()

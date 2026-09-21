@@ -25,5 +25,8 @@
     "format": "7z"
   },
   "cloudFreeSpaceWarningGB": 20,
-  "logFolderName": "_ingest_logs"
+  "logFolderName": "_ingest_logs",
+  "estimatedReadSpeedMBps": 40,
+  "estimatedLocalDiskSpeedMBps": 150,
+  "estimatedUploadSpeedMbps": 20
 }

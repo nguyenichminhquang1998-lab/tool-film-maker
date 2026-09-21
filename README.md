@@ -42,9 +42,10 @@ Toàn bộ file từ thẻ (dù nằm trong subfolder nào như `DCIM/100XXXXX/`
 
 Double-click **`ingest-gui.bat`** → mở ra 1 cửa sổ (không có cửa sổ đen cmd phía sau):
 
+- **Tự động nhận diện thẻ nhớ** — cắm thẻ vào lúc cửa sổ đang mở, app tự quét ổ đĩa mới xuất hiện mỗi 2 giây, tự chọn sẵn trong dropdown và tự quét luôn (không cần bấm gì). Chọn thẻ khác trong dropdown, hoặc bấm **"Quet lai"**, cũng quét lại thủ công.
+- Sau khi quét xong, hiện ngay: **số file** (bao nhiêu ảnh, bao nhiêu video) và **tổng dung lượng**, kèm **ước tính thời gian hoàn tất** (copy + nén + upload) — con số ước tính dựa trên tốc độ đọc thẻ/mạng *giả định* trong `ingest.config.json` (`estimatedReadSpeedMBps`, `estimatedUploadSpeedMbps`), **không phải đo thật** nên có thể chênh lệch nhiều tuỳ thẻ/mạng thực tế — chỉnh lại 2 số đó cho gần đúng tốc độ máy bạn để ước tính chuẩn hơn.
 - Nhập **tên dự án**
-- Chọn **ổ đĩa thẻ nhớ** từ dropdown (bấm "Lam moi" nếu vừa cắm thẻ mà chưa thấy)
-- Chọn đích upload: Google Drive / OneDrive / Cả hai
+- Chọn đích upload: Google Drive / OneDrive / Cả hai (đổi lựa chọn này cũng tự cập nhật lại số phút ước tính, vì upload cả 2 nơi mất gấp đôi thời gian upload)
 - Tick "Chi copy + nen, khong upload" nếu đang không có mạng
 - Bấm **"Bat dau do the"** — cửa sổ log hiển thị tiến trình trực tiếp, thanh progress chạy trong lúc xử lý, xong sẽ hiện popup kết quả (kèm cả Windows toast + Telegram như bản dòng lệnh).
 

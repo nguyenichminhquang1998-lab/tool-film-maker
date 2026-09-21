@@ -281,6 +281,82 @@ function Compress-RawFootage {
 }
 
 # ============================================================
+# Quet the (chi doc, khong copy gi) - dung cho phan xem truoc tren GUI
+# ============================================================
+
+function Get-CardSummary {
+    param([string]$CardDrive, $Config)
+
+    if (-not (Test-Path -LiteralPath $CardDrive)) {
+        throw "Khong tim thay o the nho: $CardDrive"
+    }
+
+    $allFiles = Get-ChildItem -LiteralPath $CardDrive -Recurse -File -ErrorAction SilentlyContinue
+
+    $photoExt = $Config.photoExtensions
+    $videoExt = $Config.videoExtensions
+    $fallback = $Config.unknownExtensionFallback
+
+    $summary = [PSCustomObject]@{
+        FileCount  = 0
+        TotalBytes = 0
+        PhotoCount = 0
+        PhotoBytes = 0
+        VideoCount = 0
+        VideoBytes = 0
+    }
+
+    foreach ($file in $allFiles) {
+        $summary.FileCount++
+        $summary.TotalBytes += $file.Length
+        $ext = $file.Extension.ToLowerInvariant()
+
+        $isVideo = $false
+        if ($photoExt -contains $ext) {
+            $isVideo = $false
+        }
+        elseif ($videoExt -contains $ext) {
+            $isVideo = $true
+        }
+        else {
+            $isVideo = ($fallback -ne 'photo')
+        }
+
+        if ($isVideo) {
+            $summary.VideoCount++
+            $summary.VideoBytes += $file.Length
+        }
+        else {
+            $summary.PhotoCount++
+            $summary.PhotoBytes += $file.Length
+        }
+    }
+
+    return $summary
+}
+
+function Get-EstimatedDurationSeconds {
+    param($Summary, $Config, [string]$Dest)
+
+    $totalMB = $Summary.TotalBytes / 1MB
+    $videoMB = $Summary.VideoBytes / 1MB
+
+    $readSpeed = if ($Config.estimatedReadSpeedMBps) { [double]$Config.estimatedReadSpeedMBps } else { 40 }
+    $diskSpeed = if ($Config.estimatedLocalDiskSpeedMBps) { [double]$Config.estimatedLocalDiskSpeedMBps } else { 150 }
+    $uploadMbps = if ($Config.estimatedUploadSpeedMbps) { [double]$Config.estimatedUploadSpeedMbps } else { 20 }
+    $uploadMBps = $uploadMbps / 8
+
+    $copySec = if ($readSpeed -gt 0) { $totalMB / $readSpeed } else { 0 }
+    $compressSec = if ($diskSpeed -gt 0) { $videoMB / $diskSpeed } else { 0 }
+
+    $uploadTargets = 1
+    if ($Dest -eq 'both') { $uploadTargets = 2 }
+    $uploadSec = if ($uploadMBps -gt 0) { ($videoMB / $uploadMBps) * $uploadTargets } else { 0 }
+
+    return [Math]::Round($copySec + $compressSec + $uploadSec)
+}
+
+# ============================================================
 # Buoc 5: upload len Google Drive / OneDrive qua rclone
 # ============================================================
 
