@@ -2,7 +2,7 @@
 
 Script tự động đổ thẻ nhớ cho công việc quay dựng: **copy file từ thẻ → tự tạo folder dự án → phân loại ảnh/video → nén phần gốc (raw footage) → upload Google Drive/OneDrive → thông báo hoàn tất**.
 
-Không phải một app riêng — chỉ là 1 script PowerShell nối các công cụ có sẵn (robocopy-style copy có retry, 7-Zip, rclone, Telegram Bot API), chạy bằng 1 lệnh hoặc 1 click.
+Cốt lõi là 1 bộ script PowerShell nối các công cụ có sẵn (robocopy-style copy có retry, 7-Zip, rclone, Telegram Bot API) — có 2 cách chạy: dòng lệnh (`ingest.bat`) hoặc **giao diện cửa sổ** (`ingest-gui.bat`), cả hai dùng chung 1 logic nên sửa lỗi/cải tiến ở một chỗ là áp dụng cho cả hai.
 
 ## Cấu trúc thư mục được tạo
 
@@ -38,6 +38,27 @@ Toàn bộ file từ thẻ (dù nằm trong subfolder nào như `DCIM/100XXXXX/`
 
 ## Chạy hằng ngày
 
+### Cách 1 — Giao diện cửa sổ (giống app, khuyến khích)
+
+Double-click **`ingest-gui.bat`** → mở ra 1 cửa sổ (không có cửa sổ đen cmd phía sau):
+
+- Nhập **tên dự án**
+- Chọn **ổ đĩa thẻ nhớ** từ dropdown (bấm "Lam moi" nếu vừa cắm thẻ mà chưa thấy)
+- Chọn đích upload: Google Drive / OneDrive / Cả hai
+- Tick "Chi copy + nen, khong upload" nếu đang không có mạng
+- Bấm **"Bat dau do the"** — cửa sổ log hiển thị tiến trình trực tiếp, thanh progress chạy trong lúc xử lý, xong sẽ hiện popup kết quả (kèm cả Windows toast + Telegram như bản dòng lệnh).
+
+Muốn có hẳn 1 file `.exe` riêng (icon riêng, không cần thấy đuôi `.ps1`/`.bat` gì cả) — đóng gói bằng `ps2exe` (miễn phí, 1 lần):
+
+```powershell
+Install-Module -Name ps2exe -Scope CurrentUser
+Invoke-ps2exe -inputFile .\ingest-gui.ps1 -outputFile .\DoTheApp.exe -noConsole -title "Do The Tu Dong"
+```
+
+Sau đó double-click thẳng `DoTheApp.exe` — Windows có thể cảnh báo "Unknown Publisher" lần chạy đầu (do không có chứng chỉ ký số, bình thường với tool nội bộ) — bấm "More info → Run anyway" một lần là xong.
+
+### Cách 2 — Dòng lệnh
+
 Double-click **`ingest.bat`** → nhập tên dự án, ổ đĩa thẻ nhớ (vd `E:`), chọn đích upload (`drive` / `onedrive` / `both`, Enter = cả hai).
 
 Hoặc chạy trực tiếp bằng PowerShell:
@@ -67,6 +88,13 @@ Log chi tiết từng file được ghi vào `_ingest_logs/` (bị gitignore).
 - Script **không bao giờ** tự động xoá hoặc format thẻ nhớ — luôn thao tác thủ công sau khi thấy dòng "AN TOAN de format the nho".
 - Nếu bước copy hoặc xác minh lỗi, các bước nén/upload sẽ **không chạy tiếp** (fail-fast) để tránh xử lý dữ liệu chưa đầy đủ.
 - File trùng tên khác nội dung không bao giờ bị ghi đè — luôn được đổi tên để giữ cả hai.
+
+## Cấu trúc file trong repo
+
+- `ingest.functions.ps1` — thư viện chứa toàn bộ logic pipeline (5 bước ở trên). Không tự chạy được, chỉ để file khác dot-source.
+- `ingest.ps1` + `ingest.bat` — bản dòng lệnh, dot-source thư viện trên rồi chạy tuần tự.
+- `ingest-gui.ps1` + `ingest-gui.bat` — bản giao diện cửa sổ (Windows Forms), cũng dot-source đúng thư viện đó, chạy pipeline trên 1 luồng nền (PowerShell runspace) để cửa sổ không bị "Not Responding" khi đang copy/nén file lớn, log được đẩy về giao diện qua 1 hàng đợi dùng chung (`syncHash`) mà 1 Timer đọc mỗi 200ms.
+- Sửa lỗi hay thêm tính năng cho pipeline → chỉ cần sửa `ingest.functions.ps1`, cả 2 cách chạy đều nhận thay đổi.
 
 ## Lưu ý kỹ thuật
 
