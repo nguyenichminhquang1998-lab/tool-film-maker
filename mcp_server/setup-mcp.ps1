@@ -147,16 +147,28 @@ try {
     Write-Ok "Thu vien MCP da san sang"
 
     Write-Step "Buoc 4/4: Ghi cau hinh vao Claude Desktop"
+    # Claude Desktop luu ca preferences cua no vao chinh file nay - neu app dang chay,
+    # no se ghi de lai ban trong bo nho va lam mat dong vua them.
+    $running = Get-Process -Name 'Claude' -ErrorAction SilentlyContinue
+    if ($running) {
+        Write-Host "    Claude Desktop dang chay - phai tat han truoc khi ghi, neu khong app se ghi de mat cau hinh." -ForegroundColor Yellow
+        Read-Host "    Luu lai viec dang lam trong Claude (neu co), roi nhan Enter de script tu tat Claude"
+        $running | Stop-Process -Force
+        Start-Sleep -Seconds 3
+        if (Get-Process -Name 'Claude' -ErrorAction SilentlyContinue) {
+            throw "Khong tat duoc Claude Desktop. Tat tay bang Task Manager (Ctrl+Shift+Esc) roi chay lai file nay."
+        }
+        Write-Ok "Da tat Claude Desktop"
+    }
     $configPath = Set-McpConfig -ConfigDir $configDir -PythonExe $python -ServerPy $serverPy
     Write-Ok "Da ghi: $configPath"
 
     Write-Host ""
     Write-Host "============================================================" -ForegroundColor Green
     Write-Host " XONG. Viec cuoi cung ban tu lam:" -ForegroundColor Green
-    Write-Host "  1. Tat HAN Claude Desktop: chuot phai icon Claude o khay he thong" -ForegroundColor Green
-    Write-Host "     (goc duoi phai, canh dong ho) -> Quit" -ForegroundColor Green
-    Write-Host "  2. Mo lai Claude Desktop" -ForegroundColor Green
-    Write-Host "  3. Go thu: liet ke cac the nho dang cam vao may" -ForegroundColor Green
+    Write-Host "  1. Mo lai Claude Desktop tu Start Menu" -ForegroundColor Green
+    Write-Host "  2. Settings -> Developer: phai thay tool-film-maker" -ForegroundColor Green
+    Write-Host "  3. Go thu: dung tool-film-maker liet ke the nho dang cam" -ForegroundColor Green
     Write-Host "============================================================" -ForegroundColor Green
 }
 catch {
