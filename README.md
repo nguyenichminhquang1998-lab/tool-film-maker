@@ -79,7 +79,9 @@ Cho phép gõ thẳng bằng tiếng Việt trong Claude Desktop kiểu "đổ t
 
 **Quan trọng:** MCP server này **bắt buộc chạy trên chính máy Windows** đang cắm thẻ nhớ/có rclone/7-Zip — không chạy được từ xa hay trên máy khác. Nếu bạn ra lệnh qua **Claude Code** (không phải Claude Desktop) đang chạy ngay trên máy đó, thì **không cần MCP** — Claude Code vốn đã chạy được PowerShell trực tiếp qua Bash, chỉ cần mở nó tại đúng folder này và gõ yêu cầu bằng tiếng Việt.
 
-**Cài đặt 1 lần:**
+**Cài đặt 1 lần — cách nhanh (tự động):** double-click `mcp_server\setup-mcp.bat`. Script tự tìm đúng file cấu hình Claude Desktop (cả bản cài thường lẫn bản Microsoft Store — bản Store để cấu hình ở `%LOCALAPPDATA%\Packages\Claude_...`, không phải `%APPDATA%\Claude`), tự cài Python qua winget nếu thiếu, tự `pip install`, tự ghi cấu hình (sao lưu file cũ trước, giữ nguyên các MCP server khác, dừng lại không ghi đè nếu file cũ bị lỗi JSON). Xong chỉ cần Quit hẳn Claude Desktop rồi mở lại.
+
+**Cài đặt 1 lần — cách thủ công** (nếu script tự động báo lỗi):
 
 1. Cài Python (nếu chưa có): https://www.python.org/downloads/ — nhớ tick "Add python.exe to PATH" lúc cài.
 2. Cài thư viện MCP:
