@@ -73,14 +73,21 @@ function Send-Notification {
 # ============================================================
 
 function New-ProjectFolder {
-    param($Config, [datetime]$ShootDate, [string]$ProjectName)
+    param($Config, [datetime]$ShootDate, [string]$ProjectName, [string]$DestRoot)
 
     $year = $ShootDate.Year.ToString()
     $monthFolder = "$($Config.monthFolderPrefix)$($ShootDate.Month)"
-    $dateStr = $ShootDate.ToString('d.M.yyyy')
-    $projectFolderName = "$dateStr - $ProjectName"
 
-    $projectFolder = Join-Path (Join-Path (Join-Path $Config.basePath $year) $monthFolder) $projectFolderName
+    if ($DestRoot) {
+        # Thu muc dich tu chon: do dung ten du an, khong them ngay/nam/thang.
+        $projectFolderName = $ProjectName
+        $projectFolder = Join-Path $DestRoot $projectFolderName
+    }
+    else {
+        $dateStr = $ShootDate.ToString('d.M.yyyy')
+        $projectFolderName = "$dateStr - $ProjectName"
+        $projectFolder = Join-Path (Join-Path (Join-Path $Config.basePath $year) $monthFolder) $projectFolderName
+    }
 
     $photoFolder = Join-Path $projectFolder $Config.subfolders.photo
     $videoFolder = Join-Path $projectFolder $Config.subfolders.video

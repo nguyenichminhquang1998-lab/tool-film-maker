@@ -99,6 +99,41 @@ async def _run_powershell_json(args: list[str]) -> dict:
         }
 
 
+_DEST_ALIASES = {
+    "download": "Downloads",
+    "downloads": "Downloads",
+    "tải xuống": "Downloads",
+    "tai xuong": "Downloads",
+    "desktop": "Desktop",
+    "màn hình": "Desktop",
+    "man hinh": "Desktop",
+    "document": "Documents",
+    "documents": "Documents",
+    "tài liệu": "Documents",
+    "tai lieu": "Documents",
+}
+
+
+def _resolve_dest_folder(dest_folder: str) -> tuple[Optional[str], Optional[str]]:
+    """Doi 'downloads' / '%USERPROFILE%\\X' / 'E:\\Backup' thanh duong dan tuyet doi.
+
+    Tra ve (duong_dan, None) neu hop le, hoac (None, thong_bao_loi).
+    """
+    raw = dest_folder.strip().strip('"')
+    alias = _DEST_ALIASES.get(raw.lower())
+    if alias:
+        home = os.environ.get("USERPROFILE") or os.path.expanduser("~")
+        return os.path.join(home, alias), None
+
+    expanded = os.path.expanduser(os.path.expandvars(raw))
+    if not os.path.isabs(expanded):
+        return None, (
+            f"dest_folder '{dest_folder}' khong phai duong dan day du. Dung ten quen thuoc "
+            "('downloads', 'desktop', 'documents') hoac duong dan day du, vi du 'E:\\Backup'."
+        )
+    return expanded, None
+
+
 def _normalize_drive(drive: str) -> str:
     """Chuan hoa 'E' / 'E:' / 'E:\\' ve dung dang 'E:\\'."""
     drive = drive.strip().rstrip("\\")
@@ -295,6 +330,17 @@ class StartIngestInput(BaseModel):
         default=False,
         description="True neu chi muon copy + phan loai + nen, KHONG upload (vi du khi dang khong co mang).",
     )
+    dest_folder: Optional[str] = Field(
+        default=None,
+        description=(
+            "Thu muc CHA tren may de do the vao; folder du an duoc tao ben trong voi DUNG ten "
+            "project_name (khong them ngay, khong long nam/thang). Chap nhan 'downloads', "
+            "'desktop', 'documents' hoac duong dan day du nhu 'E:\\Backup'. Bo trong = thu muc "
+            "chuan theo ingest.config.json (D:\\Quang\\<nam>\\thang <x>\\<ngay> - <ten>). "
+            "KHONG anh huong toi upload: upload van theo 'dest', chi tat khi skip_upload=True."
+        ),
+        max_length=500,
+    )
 
 
 @mcp.tool(
@@ -342,6 +388,8 @@ async def ingest_start(params: StartIngestInput) -> str:
     Examples:
         - "Đổ thẻ E: cho dự án Kid dance bsixteen" -> card_drive="E:", project_name="Kid dance bsixteen"
         - "Chỉ copy và nén thẻ F:, đừng upload, mạng đang yếu" -> card_drive="F:", skip_upload=True
+        - "Đổ thẻ H: vào Downloads, folder test đổ file" -> card_drive="H:",
+          project_name="test đổ file", dest_folder="downloads" (upload giữ mặc định)
     """
     os.makedirs(JOBS_DIR, exist_ok=True)
 
@@ -371,6 +419,14 @@ async def ingest_start(params: StartIngestInput) -> str:
     if params.skip_upload:
         args.append("-SkipUpload")
 
+    local_folder = None
+    if params.dest_folder:
+        dest_root, err = _resolve_dest_folder(params.dest_folder)
+        if err:
+            return json.dumps({"ok": False, "error": err}, ensure_ascii=False)
+        args.extend(["-DestRoot", dest_root])
+        local_folder = os.path.join(dest_root, params.project_name)
+
     log_file = open(log_path, "w", encoding="utf-8")
     try:
         proc = await asyncio.create_subprocess_exec(
@@ -397,6 +453,7 @@ async def ingest_start(params: StartIngestInput) -> str:
         {
             "ok": True,
             "job_id": job_id,
+            "local_folder": local_folder or "(thu muc chuan theo ingest.config.json)",
             "message": "Da bat dau do the. Dung ingest_get_status voi job_id nay de theo doi.",
         },
         ensure_ascii=False,

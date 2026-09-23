@@ -27,7 +27,9 @@ param(
 
     [switch]$SkipCompress,
 
-    [switch]$SkipUpload
+    [switch]$SkipUpload,
+
+    [string]$DestRoot
 )
 
 $ErrorActionPreference = 'Stop'
@@ -65,7 +67,7 @@ New-Item -ItemType File -Path $LogFile -Force | Out-Null
 try {
     Write-Host "=== Bat dau do the: $ProjectName ($CardDrive) ==="
 
-    $Paths = New-ProjectFolder -Config $Config -ShootDate $ShootDate -ProjectName $ProjectName
+    $Paths = New-ProjectFolder -Config $Config -ShootDate $ShootDate -ProjectName $ProjectName -DestRoot $DestRoot
 
     $summary = Copy-CardContents -CardDrive $CardDrive -Paths $Paths -Config $Config -LogFile $LogFile
 

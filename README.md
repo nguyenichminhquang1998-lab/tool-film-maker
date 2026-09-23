@@ -72,6 +72,7 @@ Tham số thêm:
 - `-ShootDate "2026-08-30"` — chỉ định ngày quay khác ngày hiện tại (mặc định dùng ngày chạy script)
 - `-SkipCompress` — chỉ copy + phân loại, không nén
 - `-SkipUpload` — chỉ copy + nén, không upload (ví dụ khi không có mạng tại hiện trường)
+- `-DestRoot "C:\Users\My PC\Downloads"` — đổ vào thư mục khác thay vì `D:\Quang\...`. Folder dự án tạo bên trong với **đúng tên dự án** (không thêm ngày, không lồng năm/tháng), ví dụ `Downloads\test đổ file\`. Upload vẫn chạy bình thường, trên cloud vẫn xếp theo `<Năm>/tháng <X>/<tên dự án>`.
 
 ### Cách 3 — Ra lệnh trực tiếp từ Claude Desktop (MCP)
 
@@ -103,6 +104,8 @@ Cho phép gõ thẳng bằng tiếng Việt trong Claude Desktop kiểu "đổ t
    (Sửa đường dẫn `D:\\Quang\\tool-film-maker` cho khớp đúng nơi bạn đã `git clone` về.)
 4. Khởi động lại Claude Desktop hoàn toàn (thoát hẳn, không chỉ đóng cửa sổ — icon Claude nếu còn ở khay hệ thống thì click phải → Quit).
 5. Mở lại Claude Desktop, gõ thử: *"liệt kê các thẻ nhớ đang cắm vào máy"* — nếu Claude gọi được tool và trả lời đúng, MCP đã hoạt động.
+
+Muốn đổ vào chỗ khác thư mục chuẩn thì cứ nói thẳng, ví dụ: *"đổ thẻ H: vào Downloads, folder test đổ file"*. Claude hiểu các tên `Downloads`, `Desktop`, `Documents`, hoặc nhận đường dẫn đầy đủ như `E:\Backup`. Việc chọn chỗ đổ không tắt upload. Muốn không upload thì nói thêm "không upload".
 
 **4 tool mà Claude Desktop có thể gọi:**
 - `ingest_list_drives` — liệt kê thẻ nhớ/USB đang cắm
