@@ -2,7 +2,7 @@
 
 Script tự động đổ thẻ nhớ cho công việc quay dựng: **copy file từ thẻ → tự tạo folder dự án → phân loại ảnh/video → nén phần gốc (raw footage) → upload Google Drive/OneDrive → thông báo hoàn tất**.
 
-Cốt lõi là 1 bộ script PowerShell nối các công cụ có sẵn (robocopy-style copy có retry, 7-Zip, rclone, Telegram Bot API) — có 2 cách chạy: dòng lệnh (`ingest.bat`) hoặc **giao diện cửa sổ** (`ingest-gui.bat`), cả hai dùng chung 1 logic nên sửa lỗi/cải tiến ở một chỗ là áp dụng cho cả hai.
+Cốt lõi là 1 bộ script PowerShell nối các công cụ có sẵn (robocopy-style copy có retry, 7-Zip, rclone, Telegram Bot API) — có 3 cách chạy: dòng lệnh (`ingest.bat`), **giao diện cửa sổ** (`ingest-gui.bat`), hoặc **ra lệnh trực tiếp từ Claude Desktop** (`mcp_server/`) — cả ba dùng chung 1 logic nên sửa lỗi/cải tiến ở một chỗ là áp dụng cho tất cả.
 
 ## Cấu trúc thư mục được tạo
 
@@ -73,6 +73,43 @@ Tham số thêm:
 - `-SkipCompress` — chỉ copy + phân loại, không nén
 - `-SkipUpload` — chỉ copy + nén, không upload (ví dụ khi không có mạng tại hiện trường)
 
+### Cách 3 — Ra lệnh trực tiếp từ Claude Desktop (MCP)
+
+Cho phép gõ thẳng bằng tiếng Việt trong Claude Desktop kiểu "đổ thẻ E: cho dự án Kid dance bsixteen, upload cả 2 cloud" và Claude tự gọi đúng pipeline. Đây là **dự án MCP server riêng** (nằm trong `mcp_server/`), không đụng vào logic đổ thẻ đã có — chỉ là lớp cầu nối gọi lại `ingest.ps1`/`ingest.functions.ps1` qua PowerShell.
+
+**Quan trọng:** MCP server này **bắt buộc chạy trên chính máy Windows** đang cắm thẻ nhớ/có rclone/7-Zip — không chạy được từ xa hay trên máy khác. Nếu bạn ra lệnh qua **Claude Code** (không phải Claude Desktop) đang chạy ngay trên máy đó, thì **không cần MCP** — Claude Code vốn đã chạy được PowerShell trực tiếp qua Bash, chỉ cần mở nó tại đúng folder này và gõ yêu cầu bằng tiếng Việt.
+
+**Cài đặt 1 lần:**
+
+1. Cài Python (nếu chưa có): https://www.python.org/downloads/ — nhớ tick "Add python.exe to PATH" lúc cài.
+2. Cài thư viện MCP:
+   ```
+   cd D:\Quang\tool-film-maker\mcp_server
+   pip install -r requirements.txt
+   ```
+3. Mở file cấu hình Claude Desktop — Windows: `%APPDATA%\Claude\claude_desktop_config.json` (gõ đường dẫn này vào thanh địa chỉ File Explorer để mở nhanh, tạo file mới nếu chưa có). Thêm (hoặc merge nếu file đã có nội dung khác):
+   ```json
+   {
+     "mcpServers": {
+       "tool-film-maker": {
+         "command": "python",
+         "args": ["D:\\Quang\\tool-film-maker\\mcp_server\\server.py"]
+       }
+     }
+   }
+   ```
+   (Sửa đường dẫn `D:\\Quang\\tool-film-maker` cho khớp đúng nơi bạn đã `git clone` về.)
+4. Khởi động lại Claude Desktop hoàn toàn (thoát hẳn, không chỉ đóng cửa sổ — icon Claude nếu còn ở khay hệ thống thì click phải → Quit).
+5. Mở lại Claude Desktop, gõ thử: *"liệt kê các thẻ nhớ đang cắm vào máy"* — nếu Claude gọi được tool và trả lời đúng, MCP đã hoạt động.
+
+**4 tool mà Claude Desktop có thể gọi:**
+- `ingest_list_drives` — liệt kê thẻ nhớ/USB đang cắm
+- `ingest_scan_card` — quét nhanh 1 thẻ (chỉ đọc), báo số file/dung lượng/ước tính thời gian
+- `ingest_start` — bắt đầu đổ thẻ thật (chạy nền, trả về ngay 1 `job_id`)
+- `ingest_get_status` — hỏi tiến trình 1 job đang chạy bằng `job_id`
+
+Vì đổ thẻ có thể mất nhiều phút, `ingest_start` không chờ xong mới trả lời — Claude sẽ tự gọi `ingest_get_status` lặp lại vài lần để báo bạn biết khi nào xong, giống hệt cách nó tự kiểm tra tiến trình chạy nền của chính nó.
+
 ## Cơ chế từng bước
 
 1. **Tạo folder** — tính path theo pattern năm/tháng/ngày-tên dự án, tạo sẵn 3 subfolder `ảnh/`, `gốc/`, `music/`.
@@ -95,7 +132,8 @@ Log chi tiết từng file được ghi vào `_ingest_logs/` (bị gitignore).
 - `ingest.functions.ps1` — thư viện chứa toàn bộ logic pipeline (5 bước ở trên). Không tự chạy được, chỉ để file khác dot-source.
 - `ingest.ps1` + `ingest.bat` — bản dòng lệnh, dot-source thư viện trên rồi chạy tuần tự.
 - `ingest-gui.ps1` + `ingest-gui.bat` — bản giao diện cửa sổ (Windows Forms), cũng dot-source đúng thư viện đó, chạy pipeline trên 1 luồng nền (PowerShell runspace) để cửa sổ không bị "Not Responding" khi đang copy/nén file lớn, log được đẩy về giao diện qua 1 hàng đợi dùng chung (`syncHash`) mà 1 Timer đọc mỗi 200ms.
-- Sửa lỗi hay thêm tính năng cho pipeline → chỉ cần sửa `ingest.functions.ps1`, cả 2 cách chạy đều nhận thay đổi.
+- `mcp_server/server.py` — MCP server (Python) cho Claude Desktop, gọi lại `ingest.ps1`/`ingest.functions.ps1` qua `powershell.exe` làm subprocess nền — không viết lại logic. `mcp_server/scan_card_json.ps1` là helper nhỏ dot-source `ingest.functions.ps1` để trả JSON cho tool quét thẻ.
+- Sửa lỗi hay thêm tính năng cho pipeline → chỉ cần sửa `ingest.functions.ps1`, cả 3 cách chạy (CLI, GUI, MCP) đều nhận thay đổi.
 
 ## Lưu ý kỹ thuật
 
