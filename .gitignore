@@ -1,0 +1,6 @@
+ingest.secrets.json
+*.log
+_ingest_logs/
+mcp_server/_mcp_jobs/
+mcp_server/__pycache__/
+mcp_server/.venv/
