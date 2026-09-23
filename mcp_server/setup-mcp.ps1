@@ -149,14 +149,28 @@ try {
     Write-Step "Buoc 4/4: Ghi cau hinh vao Claude Desktop"
     # Claude Desktop luu ca preferences cua no vao chinh file nay - neu app dang chay,
     # no se ghi de lai ban trong bo nho va lam mat dong vua them.
-    $running = Get-Process -Name 'Claude' -ErrorAction SilentlyContinue
-    if ($running) {
+    # Chi nham app Claude Desktop (chay duoi quyen user, doc duoc Path). Tien trinh
+    # 'claude' khac (Claude Code / Cowork nen, co the chay quyen cao) khong dung vao
+    # file cau hinh nay nen bo qua, khong co tat.
+    function Get-ClaudeDesktopProcess {
+        Get-Process -Name 'Claude' -ErrorAction SilentlyContinue | Where-Object {
+            $_.Path -and (
+                $_.Path -like '*\WindowsApps\Claude_*' -or
+                $_.Path -like '*\AnthropicClaude\*'
+            )
+        }
+    }
+
+    $running = @(Get-ClaudeDesktopProcess)
+    if ($running.Count -gt 0) {
         Write-Host "    Claude Desktop dang chay - phai tat han truoc khi ghi, neu khong app se ghi de mat cau hinh." -ForegroundColor Yellow
         Read-Host "    Luu lai viec dang lam trong Claude (neu co), roi nhan Enter de script tu tat Claude"
-        $running | Stop-Process -Force
+        foreach ($p in $running) {
+            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+        }
         Start-Sleep -Seconds 3
-        if (Get-Process -Name 'Claude' -ErrorAction SilentlyContinue) {
-            throw "Khong tat duoc Claude Desktop. Tat tay bang Task Manager (Ctrl+Shift+Esc) roi chay lai file nay."
+        if (@(Get-ClaudeDesktopProcess).Count -gt 0) {
+            throw "Khong tat duoc Claude Desktop. Tat tay: Ctrl+Shift+Esc -> tab Details -> End task moi dong Claude.exe, roi chay lai file nay."
         }
         Write-Ok "Da tat Claude Desktop"
     }
