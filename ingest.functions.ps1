@@ -107,6 +107,41 @@ function New-ProjectFolder {
 # Buoc 2: copy tu the + phan loai theo duoi file
 # ============================================================
 
+function Get-FileSha256 {
+    param([string]$Path)
+    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash
+}
+
+# Copy 1 file, doc nguon dung 1 lan, vua ghi vua tinh SHA-256 cua nguon. Tra ve hash do.
+function Copy-FileWithHash {
+    param([string]$Source, [string]$Destination)
+
+    $buffer = New-Object byte[] (4MB)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    $in = [System.IO.File]::Open($Source, 'Open', 'Read', 'Read')
+    try {
+        $out = [System.IO.File]::Open($Destination, 'Create', 'Write', 'None')
+        try {
+            while (($read = $in.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                $null = $sha.TransformBlock($buffer, 0, $read, $null, 0)
+                $out.Write($buffer, 0, $read)
+            }
+            $out.Flush($true)
+        }
+        finally { $out.Dispose() }
+    }
+    finally { $in.Dispose() }
+
+    $null = $sha.TransformFinalBlock($buffer, 0, 0)
+    $hash = [BitConverter]::ToString($sha.Hash).Replace('-', '')
+    $sha.Dispose()
+
+    $srcInfo = Get-Item -LiteralPath $Source
+    [System.IO.File]::SetCreationTimeUtc($Destination, $srcInfo.CreationTimeUtc)
+    [System.IO.File]::SetLastWriteTimeUtc($Destination, $srcInfo.LastWriteTimeUtc)
+    return $hash
+}
+
 function Copy-CardContents {
     param([string]$CardDrive, $Paths, $Config, [string]$LogFile)
 
@@ -133,6 +168,7 @@ function Copy-CardContents {
         SourceTotalBytes = 0
         CopiedFileCount  = 0
         CopiedTotalBytes = 0
+        VerifiedCount    = 0
         SkippedDuplicate = 0
         RenamedCollision = 0
         Errors           = New-Object System.Collections.Generic.List[string]
@@ -167,21 +203,30 @@ function Copy-CardContents {
 
         if (Test-Path -LiteralPath $destPath) {
             $existing = Get-Item -LiteralPath $destPath
-            if ($existing.Length -eq $file.Length) {
+            if ($existing.Length -eq $file.Length -and (Get-FileSha256 $destPath) -eq (Get-FileSha256 $file.FullName)) {
                 $summary.SkippedDuplicate++
-                Add-Content -LiteralPath $LogFile -Value "BO QUA (da co, cung size): $($file.FullName)"
+                Add-Content -LiteralPath $LogFile -Value "BO QUA (da co, cung noi dung): $($file.FullName)"
                 continue
             }
             else {
                 $baseName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
                 $extName = $file.Extension
                 $n = 1
+                $sameAsExisting = $false
                 do {
                     $destPath = Join-Path $destFolder "$($baseName)_dup$($n)$($extName)"
                     $n++
-                } while (Test-Path -LiteralPath $destPath)
+                    $sameAsExisting = (Test-Path -LiteralPath $destPath) -and
+                        ((Get-Item -LiteralPath $destPath).Length -eq $file.Length) -and
+                        ((Get-FileSha256 $destPath) -eq (Get-FileSha256 $file.FullName))
+                } while ((Test-Path -LiteralPath $destPath) -and -not $sameAsExisting)
+                if ($sameAsExisting) {
+                    $summary.SkippedDuplicate++
+                    Add-Content -LiteralPath $LogFile -Value "BO QUA (da co ban doi ten, cung noi dung): $($file.FullName) = $destPath"
+                    continue
+                }
                 $summary.RenamedCollision++
-                Add-Content -LiteralPath $LogFile -Value "TRUNG TEN KHAC SIZE: $($file.FullName) -> doi ten thanh $destPath"
+                Add-Content -LiteralPath $LogFile -Value "TRUNG TEN KHAC NOI DUNG: $($file.FullName) -> doi ten thanh $destPath"
             }
         }
 
@@ -191,7 +236,11 @@ function Copy-CardContents {
         while (-not $copied -and $attempt -lt $maxAttempts) {
             $attempt++
             try {
-                Copy-Item -LiteralPath $file.FullName -Destination $destPath -Force
+                $srcHash = Copy-FileWithHash -Source $file.FullName -Destination $destPath
+                $destHash = Get-FileSha256 $destPath
+                if ($srcHash -ne $destHash) {
+                    throw "Checksum khong khop (nguon $srcHash, dich $destHash)"
+                }
                 $copied = $true
             }
             catch {
@@ -209,7 +258,8 @@ function Copy-CardContents {
         if ($copied) {
             $summary.CopiedFileCount++
             $summary.CopiedTotalBytes += $file.Length
-            Add-Content -LiteralPath $LogFile -Value "OK: $($file.FullName) -> $destPath"
+            $summary.VerifiedCount++
+            Add-Content -LiteralPath $LogFile -Value "OK [SHA256 $srcHash]: $($file.FullName) -> $destPath"
         }
     }
 
@@ -232,7 +282,11 @@ function Test-CopyIntegrity {
         throw "KHONG KHOP so luong file: nguon $($Summary.SourceFileCount), da xu ly $accountedFor. KHONG an toan de xoa/format the. Xem log: $LogFile"
     }
 
-    Write-Host "Xac minh OK: $($Summary.SourceFileCount) file nguon, $($Summary.CopiedFileCount) da copy moi, $($Summary.SkippedDuplicate) da co san (bo qua), $($Summary.RenamedCollision) trung ten da doi ten."
+    if ($Summary.VerifiedCount -ne $Summary.CopiedFileCount) {
+        throw "Co file copy xong nhung chua duoc xac minh checksum ($($Summary.VerifiedCount)/$($Summary.CopiedFileCount)). KHONG an toan de xoa/format the. Xem log: $LogFile"
+    }
+
+    Write-Host "Xac minh OK (checksum SHA-256 khop): $($Summary.SourceFileCount) file nguon, $($Summary.CopiedFileCount) da copy moi, $($Summary.SkippedDuplicate) da co san (bo qua), $($Summary.RenamedCollision) trung ten da doi ten."
     Write-Host "-> AN TOAN de format the nho (du lieu da duoc xac minh day du tren may)."
 }
 
