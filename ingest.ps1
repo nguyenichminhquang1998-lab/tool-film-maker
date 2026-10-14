@@ -81,7 +81,7 @@ try {
         $uploadResults = Publish-ToCloud -ArchivePath $archiveInfo.FullName -Dest $Dest -Config $Config -LogFile $LogFile -Paths $Paths
     }
 
-    $doneMsg = "$($summary.PhotoCount) anh, $($summary.VideoCount) video da do vao $($Paths.ProjectFolder)."
+    $doneMsg = "$($summary.PhotoCount) anh, $($summary.VideoCount) video, $($summary.CameraCount) file may quay da do vao $($Paths.ProjectFolder)."
     if ($uploadResults) { $doneMsg += " Da upload: $($uploadResults -join ', ')" }
     Write-Host $doneMsg
     try {

@@ -31,7 +31,8 @@ try {
         fileCount        = $summary.FileCount
         photoCount       = $summary.PhotoCount
         videoCount       = $summary.VideoCount
-        totalBytes       = $summary.TotalBytes
+        cameraCount      = $summary.CameraCount
+        totalBytes      = $summary.TotalBytes
         totalGB          = [Math]::Round($summary.TotalBytes / 1GB, 2)
         estimatedSeconds = $etaSec
         estimatedMinutes = [Math]::Round($etaSec / 60, 1)

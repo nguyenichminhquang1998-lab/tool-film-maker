@@ -245,6 +245,7 @@ async def ingest_scan_card(params: ScanCardInput) -> str:
             "fileCount": int,       # tong so file tren the
             "photoCount": int,
             "videoCount": int,
+            "cameraCount": int,     # file may quay tu tao (thumbnail, XML, BIN...)
             "totalGB": float,       # tong dung luong
             "estimatedMinutes": float   # UOC TINH, dua tren toc do gia dinh
                                           # trong ingest.config.json, co the

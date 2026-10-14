@@ -4,7 +4,12 @@
   "subfolders": {
     "photo": "ảnh",
     "video": "gốc",
-    "music": "music"
+    "music": "music",
+    "camera": "camera"
+  },
+  "cameraMetadata": {
+    "folders": ["THMBNL", "DATABASE"],
+    "extensions": [".xml", ".bin"]
   },
   "photoExtensions": [
     ".jpg", ".jpeg", ".png", ".heic",

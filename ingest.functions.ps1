@@ -68,6 +68,26 @@ function Send-Notification {
     }
 }
 
+# Liet ke moi file tren the, ke ca file an/he thong (thieu -Force se bo sot file ma van bao "an toan de format").
+function Get-CardFiles {
+    param([string]$CardDrive)
+    Get-ChildItem -LiteralPath $CardDrive -Recurse -File -Force -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -notmatch '\\(System Volume Information|\$RECYCLE\.BIN)\\' }
+}
+
+# Phan loai 1 file tren the: camera (file may quay tu tao) | photo | video | unknown. Dung chung cho do the va quet thu.
+function Get-CardFileKind {
+    param($File, $Config)
+
+    $ext = $File.Extension.ToLowerInvariant()
+    if (($File.FullName.Split('\') | Where-Object { $Config.cameraMetadata.folders -contains $_ }) -or
+        ($Config.cameraMetadata.extensions -contains $ext)) { return 'camera' }
+    if ($Config.photoExtensions -contains $ext) { return 'photo' }
+    if ($Config.videoExtensions -contains $ext) { return 'video' }
+    if ($File.Attributes -band ([System.IO.FileAttributes]::Hidden -bor [System.IO.FileAttributes]::System)) { return 'camera' }
+    return 'unknown'
+}
+
 # ============================================================
 # Buoc 1: tao cau truc thu muc du an
 # ============================================================
@@ -85,10 +105,12 @@ function New-ProjectFolder {
     $photoFolder = Join-Path $projectFolder $Config.subfolders.photo
     $videoFolder = Join-Path $projectFolder $Config.subfolders.video
     $musicFolder = Join-Path $projectFolder $Config.subfolders.music
+    $cameraFolder = Join-Path $projectFolder $Config.subfolders.camera
 
     New-Item -ItemType Directory -Path $photoFolder -Force | Out-Null
     New-Item -ItemType Directory -Path $videoFolder -Force | Out-Null
     New-Item -ItemType Directory -Path $musicFolder -Force | Out-Null
+    New-Item -ItemType Directory -Path $cameraFolder -Force | Out-Null
 
     Write-Host "Da tao/kiem tra thu muc du an: $projectFolder"
 
@@ -97,7 +119,8 @@ function New-ProjectFolder {
         PhotoFolder       = $photoFolder
         VideoFolder       = $videoFolder
         MusicFolder       = $musicFolder
-        Year              = $year
+        CameraFolder      = $cameraFolder
+        Year             = $year
         MonthFolder       = $monthFolder
         ProjectFolderName = $projectFolderName
     }
@@ -136,7 +159,7 @@ function Copy-FileWithHash {
     $hash = [BitConverter]::ToString($sha.Hash).Replace('-', '')
     $sha.Dispose()
 
-    $srcInfo = Get-Item -LiteralPath $Source
+    $srcInfo = Get-Item -LiteralPath $Source -Force
     [System.IO.File]::SetCreationTimeUtc($Destination, $srcInfo.CreationTimeUtc)
     [System.IO.File]::SetLastWriteTimeUtc($Destination, $srcInfo.LastWriteTimeUtc)
     return $hash
@@ -150,19 +173,18 @@ function Copy-CardContents {
     }
 
     Write-Host "Dang quet the nho $CardDrive ..."
-    $allFiles = Get-ChildItem -LiteralPath $CardDrive -Recurse -File -ErrorAction SilentlyContinue
+    $allFiles = @(Get-CardFiles -CardDrive $CardDrive)
 
-    if (-not $allFiles -or $allFiles.Count -eq 0) {
+    if ($allFiles.Count -eq 0) {
         throw "The nho $CardDrive khong co file nao."
     }
 
-    $photoExt = $Config.photoExtensions
-    $videoExt = $Config.videoExtensions
     $fallback = $Config.unknownExtensionFallback
 
     $summary = [PSCustomObject]@{
         PhotoCount       = 0
         VideoCount       = 0
+        CameraCount      = 0
         UnknownCount     = 0
         SourceFileCount  = $allFiles.Count
         SourceTotalBytes = 0
@@ -177,12 +199,17 @@ function Copy-CardContents {
     foreach ($file in $allFiles) {
         $summary.SourceTotalBytes += $file.Length
         $ext = $file.Extension.ToLowerInvariant()
+        $kind = Get-CardFileKind -File $file -Config $Config
 
-        if ($photoExt -contains $ext) {
+        if ($kind -eq 'camera') {
+            $destFolder = $Paths.CameraFolder
+            $summary.CameraCount++
+        }
+        elseif ($kind -eq 'photo') {
             $destFolder = $Paths.PhotoFolder
             $summary.PhotoCount++
         }
-        elseif ($videoExt -contains $ext) {
+        elseif ($kind -eq 'video') {
             $destFolder = $Paths.VideoFolder
             $summary.VideoCount++
         }
@@ -345,31 +372,37 @@ function Get-CardSummary {
         throw "Khong tim thay o the nho: $CardDrive"
     }
 
-    $allFiles = Get-ChildItem -LiteralPath $CardDrive -Recurse -File -ErrorAction SilentlyContinue
+    $allFiles = Get-CardFiles -CardDrive $CardDrive
 
-    $photoExt = $Config.photoExtensions
-    $videoExt = $Config.videoExtensions
     $fallback = $Config.unknownExtensionFallback
 
     $summary = [PSCustomObject]@{
-        FileCount  = 0
-        TotalBytes = 0
-        PhotoCount = 0
-        PhotoBytes = 0
-        VideoCount = 0
-        VideoBytes = 0
+        FileCount   = 0
+        TotalBytes  = 0
+        PhotoCount  = 0
+        PhotoBytes  = 0
+        VideoCount  = 0
+        VideoBytes  = 0
+        CameraCount = 0
+        CameraBytes = 0
     }
 
     foreach ($file in $allFiles) {
         $summary.FileCount++
         $summary.TotalBytes += $file.Length
-        $ext = $file.Extension.ToLowerInvariant()
+
+        $kind = Get-CardFileKind -File $file -Config $Config
+        if ($kind -eq 'camera') {
+            $summary.CameraCount++
+            $summary.CameraBytes += $file.Length
+            continue
+        }
 
         $isVideo = $false
-        if ($photoExt -contains $ext) {
+        if ($kind -eq 'photo') {
             $isVideo = $false
         }
-        elseif ($videoExt -contains $ext) {
+        elseif ($kind -eq 'video') {
             $isVideo = $true
         }
         else {

@@ -400,7 +400,7 @@ $btnStart.Add_Click({
                 Write-GuiLog "Bo qua upload theo yeu cau."
             }
 
-            $doneMsg = "$($summary.PhotoCount) anh, $($summary.VideoCount) video da do vao $($Paths.ProjectFolder)."
+            $doneMsg = "$($summary.PhotoCount) anh, $($summary.VideoCount) video, $($summary.CameraCount) file may quay da do vao $($Paths.ProjectFolder)."
             if ($uploadResults) { $doneMsg += " Da upload: $($uploadResults -join ', ')" }
             Write-GuiLog $doneMsg
 
@@ -479,7 +479,7 @@ $timer.Add_Tick({
                 $script:lastCardSummary = $null
             }
             else {
-                $lblCardInfo.Text = "The nho: $($s.FileCount) file ($($s.PhotoCount) anh, $($s.VideoCount) video) - $totalGB GB"
+                $lblCardInfo.Text = "The nho: $($s.FileCount) file ($($s.PhotoCount) anh, $($s.VideoCount) video, $($s.CameraCount) file may quay) - $totalGB GB"
                 $script:lastCardSummary = $s
                 Update-EtaDisplay
             }
