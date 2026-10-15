@@ -8,6 +8,7 @@ Hai tool nho cho Javis: tim file va mo app. Ca hai la ham thuan (de test), serve
 
 import json
 import os
+import subprocess
 import time
 import unicodedata
 
@@ -132,5 +133,6 @@ def open_app(name: str, config: dict) -> dict:
     shortcut = _find_shortcut(stem)
     if not shortcut:
         return {"ok": False, "error": f"Khong thay shortcut '{stem}' trong Start Menu (app da go?)."}
-    os.startfile(shortcut)
+    # Nho explorer.exe (da chay san) mo shortcut de app khong la tien trinh con cua server: server tat thi app khong tat theo
+    subprocess.Popen(["explorer.exe", shortcut])
     return {"ok": True, "opened": stem, "note": "Da gui lenh mo; app co the mat vai giay de hien cua so."}

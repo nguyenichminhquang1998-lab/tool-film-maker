@@ -47,7 +47,8 @@ Quy tắc:
 5. Trả lời ngắn gọn, tiếng Việt có dấu. Khi công cụ báo lỗi, nói thật lỗi gì.
 6. Yêu cầu có nhiều việc: gọi công cụ cho TỪNG việc trước khi trả lời. Không viết "sau đó tôi sẽ..." mà không làm. Một việc lỗi thì vẫn làm việc còn lại.
 7. Chỉ nói "đã làm" khi kết quả công cụ xác nhận ok. Công cụ báo chưa thực hiện hoặc lỗi thì nói thật là chưa làm được.
-8. Chỉ hứa hoặc đề nghị việc mà các công cụ bạn đang có làm được. Việc khác (tải lên Drive, gửi tin, đăng bài...) thì nói thẳng là bạn chưa có công cụ, đừng hứa."""
+8. Chỉ hứa hoặc đề nghị việc mà các công cụ bạn đang có làm được. Việc khác (tải lên Drive, gửi tin, đăng bài...) thì nói thẳng là bạn chưa có công cụ, đừng hứa.
+9. Đừng tự khẳng định điều bạn chưa kiểm bằng công cụ (ví dụ "app này không có trong danh sách"). Yêu cầu khớp một công cụ thì cứ GỌI công cụ, để công cụ trả lời có hay không."""
 
 DRY_RESULT = json.dumps(
     {"ok": False, "dry_run": True, "error": "CHƯA THỰC HIỆN: công cụ này chưa được cấp quyền chạy thật. Hãy nói rõ với Quang là bạn chưa làm."},
@@ -92,6 +93,16 @@ def fix_voice(request: str, voice: dict):
             request = pattern.sub(right, request)
             fixed.append((wrong, right))
     return request, fixed
+
+
+TOOL_VERBS = {"mở": "open_app", "tìm": "find_file"}  # dong tu dau cau -> cong cu hien nhien phai goi
+
+
+def expected_tool(request: str, calls: list, box) -> str:
+    """Yeu cau 'mo ...'/'tim ...' ma model chua goi cong cu nao = nghi tu ket luan khong kiem (da gap: bia 'khong co trong danh sach')."""
+    m = re.match(r"\s*(mở|tìm)\b", request.lower())
+    tool = TOOL_VERBS.get(m.group(1)) if m else None
+    return tool if tool and tool in box.meta and not calls else ""
 
 
 def check_claims(answer: str, calls: list) -> list:
@@ -198,7 +209,7 @@ async def run_agent(box, request, model=local_llm.DEFAULT_MODEL, max_steps=5, ti
     if voice_fixes:
         user_text += "\n(Ghi chú tự động: Quang nói bằng giọng nên " + "; ".join(f"'{w}' đã được sửa thành '{r}'" for w, r in voice_fixes) + ".)"
     messages = [{"role": "system", "content": system}, {"role": "user", "content": user_text}]
-    calls, seen, trace = [], set(), []
+    calls, seen, trace, nudged = [], set(), [], False
     stopped, answer = "max_steps", ""
 
     for step in range(1, max_steps + 1):
@@ -216,6 +227,11 @@ async def run_agent(box, request, model=local_llm.DEFAULT_MODEL, max_steps=5, ti
         tool_calls = msg.get("tool_calls") or []
         trace.append({"step": step, "text": (msg.get("content") or "")[:500], "n_tool_calls": len(tool_calls)})
         if not tool_calls:
+            hint = "" if nudged else expected_tool(user_text, calls, box)
+            if hint:  # nguoi kiem soat: nhac 1 lan, khong tin cau tra loi chua kiem
+                nudged = True
+                messages.append({"role": "user", "content": f"Bạn chưa gọi công cụ nào. Yêu cầu này khớp công cụ {hint}: hãy gọi nó rồi trả lời dựa trên kết quả thật, đừng tự kết luận."})
+                continue
             answer = (msg.get("content") or "").strip()
             stopped = "final" if answer else "empty"  # model im lang = loi, khong phai cau tra loi
             break
@@ -259,6 +275,8 @@ async def _amain(a):
     print(f"\n[{run['stopped']} | {run['seconds']}s | {len(run['calls'])} lệnh]")
     for c in run["calls"]:
         print(f"  - {c['name']} {json.dumps(c['args'], ensure_ascii=False)} -> {'đã chạy' if c['executed'] else 'KHÔNG chạy'}")
+    for wrong, right in run["voice_fixes"]:
+        print(f"  ✎ Từ điển giọng nói: '{wrong}' → '{right}'")
     for w in run["warnings"]:
         print("  ⚠ Cảnh báo tự kiểm:", w)
     print("Log:", path)
