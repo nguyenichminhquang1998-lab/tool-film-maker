@@ -1,0 +1,45 @@
+{
+  "searchRoots": [
+    "D:\\Quang",
+    "%USERPROFILE%\\Downloads",
+    "%USERPROFILE%\\Documents",
+    "%USERPROFILE%\\Desktop",
+    "D:\\",
+    "E:\\",
+    "F:\\",
+    "G:\\",
+    "I:\\"
+  ],
+  "searchExclude": [
+    "$RECYCLE.BIN",
+    "System Volume Information",
+    "node_modules",
+    ".git",
+    ".venv",
+    "site-packages",
+    "__pycache__"
+  ],
+  "searchTimeLimitSeconds": 25,
+  "apps": {
+    "resolve": "DaVinci Resolve",
+    "davinci": "DaVinci Resolve",
+    "blender": "Blender 5.2",
+    "premiere": "Adobe Premiere Pro 2026",
+    "after effects": "Adobe After Effects 2026",
+    "ae": "Adobe After Effects 2026",
+    "photoshop": "Adobe Photoshop 2021",
+    "lightroom": "Adobe Lightroom Classic",
+    "audition": "Adobe Audition 2026",
+    "media encoder": "Adobe Media Encoder 2026",
+    "capcut": "CapCut",
+    "camtasia": "Camtasia 9",
+    "catalyst": "Catalyst Browse",
+    "zalo": "Zalo",
+    "chrome": "Google Chrome",
+    "coc coc": "Cốc Cốc",
+    "notion": "Notion",
+    "anydesk": "AnyDesk",
+    "spotify": "Spotify",
+    "hwmonitor": "HWMonitor"
+  }
+}

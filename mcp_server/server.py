@@ -26,6 +26,8 @@ from typing import Optional
 from mcp.server.mcpserver import MCPServer
 from pydantic import BaseModel, ConfigDict, Field
 
+import javis_tools
+
 # ============================================================
 # Hang so
 # ============================================================
@@ -496,6 +498,107 @@ async def ingest_get_status(params: GetIngestStatusInput) -> str:
         },
         ensure_ascii=False,
     )
+
+
+# ============================================================
+# Tool 5: tim file tren may (chi doc ten)
+# ============================================================
+
+
+class FindFileInput(BaseModel):
+    """Input cho find_file."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    query: str = Field(
+        ...,
+        description="Tu khoa trong ten file/thu muc, vd 'C8092' hoac 'ke hoach javis'. Nhieu tu thi ten phai chua du ca. Khong phan biet hoa thuong va dau tieng Viet.",
+        min_length=1,
+        max_length=200,
+    )
+    extension: Optional[str] = Field(
+        default=None,
+        description="Loc theo duoi file, vd 'mp4' hoac 'docx'. Bo trong de tim moi loai (ke ca thu muc).",
+        max_length=10,
+    )
+    limit: int = Field(default=15, description="So ket qua toi da tra ve (moi nhat truoc).", ge=1, le=50)
+    all_drives: bool = Field(
+        default=False,
+        description="False: tim lan luot D:\\Quang, Downloads, Documents, Desktop roi cac o, DUNG ngay khi thay ket qua o mot cho. True: quet het tat ca cac o (cham hon, co the mat vai chuc giay luc o dia chua nong).",
+    )
+
+
+@mcp.tool(
+    name="find_file",
+    annotations={
+        "title": "Tim file / thu muc tren may",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+)
+async def find_file(params: FindFileInput) -> str:
+    """Tim file hoac thu muc theo ten tren cac o D:, E:, F:, G:, I: va thu muc Desktop/Documents/Downloads.
+
+    CHI doc ten, khong doc noi dung file. Danh sach o va thu muc bi loai nam trong javis.config.json.
+
+    Returns:
+        str: JSON {"ok", "found", "shown": [{"path", "type", "size_mb", "modified"}], "partial", "truncated",
+        "searched", "not_searched", "seconds"}. Neu "not_searched" khong rong va ket qua chua dung y nguoi dung,
+        goi lai voi all_drives=true. "partial": true nghia la het thoi gian quet (ket qua co the thieu).
+    """
+    result = await asyncio.to_thread(
+        javis_tools.find_files,
+        params.query,
+        javis_tools.load_config(),
+        params.limit,
+        params.extension,
+        params.all_drives,
+    )
+    return json.dumps(result, ensure_ascii=False)
+
+
+# ============================================================
+# Tool 6: mo app trong danh sach trang
+# ============================================================
+
+
+class OpenAppInput(BaseModel):
+    """Input cho open_app."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    name: str = Field(
+        ...,
+        description="Ten app can mo, vd 'resolve', 'blender', 'after effects', 'zalo'. Chi mo duoc app co trong danh sach 'apps' cua javis.config.json.",
+        min_length=1,
+        max_length=60,
+    )
+
+
+@mcp.tool(
+    name="open_app",
+    annotations={
+        "title": "Mo app tren may",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": False,
+    },
+)
+async def open_app(params: OpenAppInput) -> str:
+    """Mo mot app tren man hinh may tinh cua nguoi dung (nhu bam dup vao shortcut trong Start Menu).
+
+    CHI mo duoc app trong danh sach trang cua javis.config.json; khong nhan duong dan, lenh hay tham so.
+    Neu khong khop hoac khop nhieu app, tra ve "ok": false kem "available" (danh sach app co the mo) de hoi lai nguoi dung.
+    Neu app dang mo san thi thuong chi dua cua so len truoc.
+
+    Returns:
+        str: JSON {"ok": true, "opened": "ten app"} hoac {"ok": false, "error": "...", "available": [...]}.
+    """
+    result = await asyncio.to_thread(javis_tools.open_app, params.name, javis_tools.load_config())
+    return json.dumps(result, ensure_ascii=False)
 
 
 if __name__ == "__main__":
