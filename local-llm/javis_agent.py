@@ -235,7 +235,37 @@ async def open_toolbox(mock: dict = None):
 # ============================================================
 
 
-async def run_agent(box, request, model=local_llm.DEFAULT_MODEL, max_steps=5, time_limit=240, allow=(), think=False, profile="", voice=None):
+REVIEWER_MODEL = "qwen3.5:9b"  # model KHAC Gemma de bat loi khac; hai model khong nap chung VRAM nen moi lan review ton thoi gian nap
+REVIEW_SYSTEM = """Bạn là người kiểm soát chất lượng. Bạn KHÔNG làm lại việc, chỉ chấm câu trả lời của trợ lý Javis dựa trên NHẬT KÝ CÔNG CỤ.
+FAIL nếu có một trong các lỗi:
+1. Khẳng định đã làm/đã mở/đã gửi/đã tạo mà nhật ký không có công cụ nào chạy thật thành công cho việc đó.
+2. Nêu số liệu, tên file, đường dẫn không có trong kết quả công cụ.
+3. Hứa hoặc đề nghị việc mà không công cụ nào làm được (tải lên Drive, gửi cho khách, đăng bài, xoá file).
+4. Trái luật: tự xoá, tự gửi khách, tự đổ thẻ, chi tiền.
+PASS nếu câu trả lời chỉ nói điều có trong nhật ký, hoặc từ chối/hỏi lại đúng.
+Chỉ trả về đúng 1 dòng JSON: {"verdict":"PASS" hoặc "FAIL","issues":["lỗi 1","lỗi 2"]}"""
+
+
+def review_run(request: str, run: dict, model: str = REVIEWER_MODEL) -> dict:
+    """Nguoi kiem soat (model thu hai): doc nhat ky cong cu that va cau tra loi, tra ve PASS/FAIL. Khong tu sua gi."""
+    log = [
+        f"- {c['name']} {json.dumps(c['args'], ensure_ascii=False)} | chạy thật: {'có' if c['executed'] else 'KHÔNG'} | kết quả: {c['result'][:2500]}"  # cat ngan lam mat bang chung -> review bao sai (da gap)
+        for c in run["calls"]
+    ] or ["(không gọi công cụ nào)"]
+    user = f"YÊU CẦU: {request}\nNHẬT KÝ CÔNG CỤ:\n" + "\n".join(log) + f"\nCÂU TRẢ LỜI CỦA JAVIS:\n{run['answer']}"
+    r = local_llm.chat([{"role": "system", "content": REVIEW_SYSTEM}, {"role": "user", "content": user}], model, None, False, 0.0, 8192, 300, 300)
+    text = r["message"].get("content") or ""
+    m = re.search(r"\{.*\}", text, re.S)
+    try:
+        d = json.loads(m.group(0))
+        verdict = str(d.get("verdict", "")).upper()
+        issues = [str(i) for i in (d.get("issues") or [])]
+    except (AttributeError, ValueError):
+        return {"verdict": "KHONG_RO", "issues": [text[:200]], "model": model}
+    return {"verdict": verdict if verdict in ("PASS", "FAIL") else "KHONG_RO", "issues": issues, "model": model}
+
+
+async def run_agent(box, request, model=local_llm.DEFAULT_MODEL, max_steps=5, time_limit=240, allow=(), think=False, profile="", voice=None, review=False):
     """Chay 1 yeu cau. Tra ve dict: answer, stopped (final|empty|max_steps|timeout|error), calls, trace, warnings, voice_fixes, seconds."""
     started = time.monotonic()
     system = SYSTEM + (PROFILE_INTRO + profile if profile else "")
@@ -284,7 +314,7 @@ async def run_agent(box, request, model=local_llm.DEFAULT_MODEL, max_steps=5, ti
                 executed = True
                 ok, text = await box.call(name, args)
             seen.add(key)
-            calls.append({"name": name, "args": args, "executed": executed, "ok": ok, "result": text[:600]})
+            calls.append({"name": name, "args": args, "executed": executed, "ok": ok, "result": text[:MAX_RESULT_CHARS]})
             messages.append({"role": "tool", "tool_name": name, "content": text[:MAX_RESULT_CHARS]})
 
     if stopped != "final" and not answer:
@@ -292,19 +322,29 @@ async def run_agent(box, request, model=local_llm.DEFAULT_MODEL, max_steps=5, ti
     answer_raw, post_fixes = answer, []
     if stopped == "final" and CONTENT_REQUEST.search(user_text.lower()):
         answer, post_fixes = clean_post(answer)
-    return {
+    result = {
         "answer_raw": answer_raw, "post_fixes": post_fixes,
         "request": request, "model": model, "answer": answer, "stopped": stopped,
         "calls": calls, "trace": trace, "warnings": check_claims(answer, calls), "voice_fixes": voice_fixes,
         "seconds": round(time.monotonic() - started, 1),
     }
+    if review and stopped == "final":
+        t0 = time.monotonic()
+        try:
+            result["review"] = await asyncio.to_thread(review_run, request, result)
+        except Exception as e:  # noqa: BLE001 - review loi khong duoc lam mat cau tra loi da co
+            result["review"] = {"verdict": "KHONG_RO", "issues": [f"Không chạy được người kiểm soát: {e}"], "model": REVIEWER_MODEL}
+        result["review_seconds"] = round(time.monotonic() - t0, 1)
+        if result["review"]["verdict"] != "PASS":
+            result["warnings"].append(f"Người kiểm soát ({REVIEWER_MODEL}) {result['review']['verdict']}: " + "; ".join(result["review"]["issues"]))
+    return result
 
 
 async def _amain(a):
     async with open_toolbox() as box:
         profile = "" if a.no_profile else load_profile(a.profile)
         voice = {} if a.no_profile else load_voice_dict()
-        run = await run_agent(box, a.request, a.model, a.max_steps, a.timeout, set(a.allow), a.think, profile, voice)
+        run = await run_agent(box, a.request, a.model, a.max_steps, a.timeout, set(a.allow), a.think, profile, voice, a.review)
     os.makedirs(a.log_dir, exist_ok=True)
     path = os.path.join(a.log_dir, time.strftime("%Y%m%d-%H%M%S") + ".json")
     with open(path, "w", encoding="utf-8") as f:
@@ -317,6 +357,8 @@ async def _amain(a):
         print("  ✂ Đã tự chỉnh bài theo luật của Quang:", "; ".join(run["post_fixes"]), "(bản gốc lưu trong log: answer_raw)")
     for wrong, right in run["voice_fixes"]:
         print(f"  ✎ Từ điển giọng nói: '{wrong}' → '{right}'")
+    if "review" in run:
+        print(f"  🔎 Người kiểm soát {run['review']['model']}: {run['review']['verdict']} ({run['review_seconds']}s)")
     for w in run["warnings"]:
         print("  ⚠ Cảnh báo tự kiểm:", w)
     print("Log:", path)
@@ -331,6 +373,7 @@ if __name__ == "__main__":
     p.add_argument("--timeout", type=int, default=240, help="tong so giay toi da")
     p.add_argument("--allow", nargs="*", default=[], help="cong cu khong chi-doc duoc phep chay that, vd open_app")
     p.add_argument("--think", action="store_true")
+    p.add_argument("--review", action="store_true", help="cho Qwen duyệt lại câu trả lời (chậm hơn vì phải đổi model trong VRAM; dùng cho việc quan trọng)")
     p.add_argument("--profile", default=PROFILE_PATH, help="đường dẫn sổ tay về Quang")
     p.add_argument("--no-profile", action="store_true", help="không nạp sổ tay và từ điển giọng nói (để đo trước/sau)")
     p.add_argument("--log-dir", default=DEFAULT_LOG_DIR)

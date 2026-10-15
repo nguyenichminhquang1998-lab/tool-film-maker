@@ -75,7 +75,8 @@ $made = 0; $skipped = 0
 $failed = New-Object System.Collections.Generic.List[string]
 
 if ($files.Count -gt 0) {
-    $turn = Wait-GpuTurn -Name "proxy $projectName"
+    # Proxy NVENC thuc su chi dung ~250 MiB VRAM (do 15/10); 600 MiB de van chay duoc khi Gemma + Resolve dang mo (con trong ~800 MiB)
+    $turn = Wait-GpuTurn -Name "proxy $projectName" -NeedVramMB 600
     try {
         foreach ($file in $files) {
             $out = Join-Path $proxyFolder ($file.BaseName + '.mp4')
