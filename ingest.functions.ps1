@@ -84,7 +84,12 @@ function Get-CardFileKind {
         ($Config.cameraMetadata.extensions -contains $ext)) { return 'camera' }
     if ($Config.photoExtensions -contains $ext) { return 'photo' }
     if ($Config.videoExtensions -contains $ext) { return 'video' }
-    if ($File.Attributes -band ([System.IO.FileAttributes]::Hidden -bor [System.IO.FileAttributes]::System)) { return 'camera' }
+    $hiddenOrSystem = [System.IO.FileAttributes]::Hidden -bor [System.IO.FileAttributes]::System
+    if ($File.Attributes -band $hiddenOrSystem) { return 'camera' }
+    # File thuong nam trong thu muc an (vd AVF_INFO cua Sony): chi thu muc cha bi an, file thi khong.
+    for ($dir = $File.Directory; $dir -and $dir.Parent; $dir = $dir.Parent) {
+        if ($dir.Attributes -band $hiddenOrSystem) { return 'camera' }
+    }
     return 'unknown'
 }
 
