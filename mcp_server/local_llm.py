@@ -46,4 +46,9 @@ def chat(
         headers={"Content-Type": "application/json"},
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.load(resp)
+        r = json.load(resp)
+    msg = r.get("message") or {}
+    content = msg.get("content") or ""
+    if "<channel|>" in content:  # Gemma doi khi ro nhan kenh 'thought' vao noi dung: chi giu phan sau nhan
+        msg["content"] = content.split("<channel|>")[-1].strip()
+    return r

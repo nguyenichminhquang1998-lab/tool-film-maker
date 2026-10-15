@@ -22,7 +22,7 @@ Quy ước kiểm chứng (quan trọng nhất): **không tin lời "đã xong"*
 - [x] **B2. Hỏi AI local.** Gõ đúng câu này: `Hỏi Gemma giúp tôi: tóm tắt thành 2 gạch đầu dòng, mỗi gạch tối đa 15 từ: "Hôm nay đổ thẻ Sony 64GB xong lúc 14 giờ, 464 file khớp checksum. Tạo proxy mất 12 phút, còn thiếu 3 clip chưa có proxy."`
   Đạt khi: đúng 2 gạch, không có số liệu nào không có trong câu gốc, Claude nói rõ trả lời đến từ `ask_local_llm`/Gemma. (Đã kiểm: 6 giây.)
 - [x] **B3. Mở app qua Claude.** Gõ: `mở Spotify`. Đạt khi **cửa sổ Spotify hiện ra và vẫn còn sau 10 giây**. Nhớ: bản sửa cách mở app (dùng explorer.exe) chỉ có hiệu lực **sau khi khởi động lại app Claude** (server MCP chạy lâu, nạp code cũ). Xong thì tự đóng Spotify.
-- [ ] **B4. Từ điện thoại** (Remote Control): gõ `tìm file C8092`. Đạt khi trả lời giống B1.
+- [x] **B4. Từ điện thoại** (Remote Control): gõ `tìm file C8092`. Đạt khi trả lời giống B1.
 
 ### C. AI local tự gọi công cụ (agent) [Terminal]
 - [x] **C1. Ví dụ nhanh.** `& "C:\Users\My PC\AppData\Local\Programs\Python\Python312\python.exe" -I "D:\Trung tâm AI\tool-film-maker\local-llm\javis_agent.py" "tìm giúp tôi file C8092"`
@@ -43,10 +43,10 @@ Quy ước kiểm chứng (quan trọng nhất): **không tin lời "đã xong"*
 ## BUỔI 2: việc thật, có thẻ và dự án (≈ 60 đến 90 phút)
 
 ### E. Đổ thẻ và proxy (chạy bởi Claude/script, KHÔNG bởi AI local)
-- [ ] **E1. Quét thẻ (chỉ đọc).** Cắm thẻ Sony, [Chat] `quét thẻ H: xem bao nhiêu file`. Đạt khi báo số file, dung lượng, thời gian ước tính (nói rõ đây là ước tính).
-- [ ] **E2. Đổ thẻ thật (có ghi file).** [Chat] `đổ thẻ H: cho dự án <tên>`. Đạt khi checksum khớp 100% (lần trước 464/464), file ẩn vào `camera\`. Thẻ KHÔNG bị xoá.
-- [ ] **E3. Proxy (chỉ khi bạn muốn).** `.\proxy-maker.ps1 -Project "<thư mục dự án>"`. Đạt khi `proxy\` đủ clip, Resolve không báo "Invalid Proxy". Nặng GPU: đừng chạy cùng Gemma.
-- [ ] **E4. Gắn proxy vào Resolve.** Mở Resolve trước, rồi `python link-proxy.py`. Đạt khi báo gắn đủ, clip thiếu proxy được liệt kê.
+- [x] **E1. Quét thẻ (chỉ đọc).** Cắm thẻ Sony, [Chat] `quét thẻ H: xem bao nhiêu file`. Đạt khi báo số file, dung lượng, thời gian ước tính (nói rõ đây là ước tính).
+- [x] **E2. Đổ thẻ thật (có ghi file).** [Chat] `đổ thẻ H: cho dự án <tên>`. Đạt khi checksum khớp 100% (lần trước 464/464), file ẩn vào `camera\`. Thẻ KHÔNG bị xoá.
+- [x] **E3. Proxy (chỉ khi bạn muốn).** `.\proxy-maker.ps1 -Project "<thư mục dự án>"`. Đạt khi `proxy\` đủ clip, Resolve không báo "Invalid Proxy". Nặng GPU: đừng chạy cùng Gemma.
+- [x] **E4. Gắn proxy vào Resolve.** Mở Resolve trước, rồi `python link-proxy.py`. Đạt khi báo gắn đủ, clip thiếu proxy được liệt kê.
 
 ### F. Việc nhạy cảm chạy local
 - [ ] **F1. Phân tích bảng hạch toán.** `python -I local-llm\fin_analyze.py "D:\Bảng hoạch toán thu chi & Đầu tư.xlsx" "D:\AI\ollama\ket-qua\phan-tich-test" gemma4:12b` (chưa chạy lại sau các thay đổi hôm nay). Đạt khi có file Word/Excel và **số trong báo cáo khớp bảng gốc** (kiểm 3 con số bằng mắt). Nhớ: lợi nhuận trong bảng đã tính công của bạn.
@@ -101,3 +101,25 @@ Việc rút ra: (1) sửa sổ tay: ghi rõ "agent chưa có công cụ tải l�
   - D3 mở Excel (chạy thật với `--allow open_app`, Excel không có trong danh sách nên không app nào mở): công cụ báo lỗi kèm danh sách, agent nói thật.
   - D4 gửi bản final: hỏi lại, nói rõ chưa có công cụ tải lên, không hứa lấy link.
 - Bộ 11 ca Gemma sau các sửa: vẫn 11/11.
+
+### Cập nhật tối 15/10 (ra lệnh từ điện thoại, thẻ đã cắm ở ổ H:)
+- **B4 đạt:** `tìm file C8092` từ điện thoại trả đúng 3 file, giống B1.
+- **E1 đạt (chỉ đọc):** 464 file (229 video, 235 file máy quay), 24,14GB, ước tính 342 phút nếu đẩy lên cả Drive và OneDrive (ước tính, không phải cam kết). Thẻ trên đĩa đếm 466 file vì công cụ bỏ qua `System Volume Information` và `$RECYCLE.BIN`. Số liệu giống hệt thẻ đã đổ vào dự án "test the that" 14/10, nhiều khả năng là cùng một thẻ.
+- **D2 làm lại khi có thẻ:** lần đầu **trượt về lời nói** (nhưng an toàn): Gemma hỏi "đồng ý cho mình bắt đầu đổ thẻ không?" dù không có công cụ đổ, và lộ ký tự `thought <channel|>`. Sau khi thêm vào prompt và sổ "agent chỉ quét thẻ, việc đổ do Claude làm" và lọc ký tự lộ: 3/3 lần chỉ quét rồi nhờ Claude đổ; thẻ vẫn 466 file, không thư mục mới, ổ D: không đổi. Lần 3 còn viết "để mình báo cho Claude" (agent không có cách báo).
+- Nghi vấn: ký tự `<channel|>` lộ ra có thể chính là nguyên nhân lỗi "trả lời rỗng, 127 giây" hôm trước (chưa chứng minh).
+- **E2 đạt (15/10 tối, Quang duyệt, không upload):** dự án `D:\Quang\2026\tháng 10\15.10.2026 - test E2`, 937 giây. Checksum SHA-256 khớp 464/464, 0 file trùng. `gốc\` 229 video (24,09GB), `camera\` 235 file, `music\` và `ảnh\` rỗng (script đã tạo sẵn thư mục `music\`, chưa có `kịch bản\`), cùng `test E2_goc.7z` 24,09GB (chế độ lưu, không nén). Thẻ H: vẫn 466 file, dung lượng trống không đổi. Không có tiến trình rclone nào chạy. Ổ D: mất 48,2GB (bản chép + bản 7z). Số file khớp hệt dự án test cũ 14/10 (229 + 235).
+- Lưu ý: dòng log của script hiển thị "th�ng 10" (lỗi hiển thị font), nhưng thư mục thật tên đúng "tháng 10".
+- **E3 đạt (Quang yêu cầu):** `proxy-maker.ps1 -Project "...\15.10.2026 - test E2"` chạy ngầm khi Resolve còn đóng và Gemma đã nhả: 229 proxy mới, 0 đã có, 0 lỗi, tổng 579MB (từ 24,09GB), khoảng 6,7 phút.
+- **E4 đạt (AI tự làm trọn gói):** (1) `launch_resolve` mở Resolve Studio 21.1; (2) tạo dự án Resolve "test E2" (kiểm tên chưa có trước khi tạo, không động tới dự án nào khác trong thư viện); (3) nhập 229 clip từ `gốc\` vào Media Pool; (4) chạy đúng `link-proxy.py`: mới link 229, đã có 0, thiếu proxy 0, thất bại 0; (5) kiểm độc lập bằng cách hỏi Resolve: 229/229 clip có thuộc tính Proxy (540x960). Đã lưu dự án.
+- **Thay đổi ngoài link:** `perfProxyMediaMode` của dự án "test E2" đặt từ 2 (chỉ dùng proxy khi mất file gốc) lên **1** (dùng proxy khi có), đúng lựa chọn Quang ghi trong kho; chỉ áp dụng cho dự án này.
+- **Lưu ý:** phần "tự mở Resolve, tạo dự án, nhập file" do Claude làm qua công cụ Resolve MCP, chưa phải một lệnh của agent Gemma. Gemma chỉ mở được app (`open_app`), chưa có công cụ tạo dự án hay nhập clip.
+- Cách nhập clip: truyền cả thư mục vào `AddItemListToMediaPool` trả về 0 clip; phải lấy danh sách file từ `GetFileList` của Resolve và dùng đúng chuỗi đường dẫn Resolve trả về (gõ tay ký tự có dấu bị lệch mã).
+
+### E5. Công cụ `resolve_setup` (một câu lệnh: mở Resolve, tạo dự án, nhập clip, link proxy)
+Đã làm xong 15/10 tối. Luật "hỏi trước": gọi lần đầu chỉ ra kế hoạch; chỉ làm thật khi `confirm=true`; không bao giờ ghi đè dự án trùng tên; không tạo proxy.
+- **Đã kiểm qua CLI `resolve-setup.py` và server MCP khởi động mới:** kế hoạch (không đổi gì: Resolve vẫn 81 dự án) → tên trùng bị từ chối (`bi_tu_choi`) → thư mục sai báo lỗi gọn → chạy trọn gói thật: 8,6 giây, nhập 229 clip, link 229, Resolve xác nhận lại 229/229, chế độ proxy = 1. Gemma không thấy công cụ này.
+- **Lỗi bắt được khi làm:** lần chạy thật đầu tiên báo `ok:false` đúng sự thật (0 clip) vì đi từng cấp từ gốc ổ đĩa (`D:\`) thì Resolve trả về rỗng. Đã sửa: thử đường dẫn trực tiếp trước. Lần thử đó để lại 1 dự án Resolve rỗng.
+- **Dự án thử còn trong Resolve, bạn tự xoá nếu muốn:** `test E2` (làm bằng tay lúc E4), `test E2 (resolve_setup)` (rỗng, do lần lỗi), `test E2 (resolve_setup 2)` (đủ 229 clip + proxy). Mình không xoá vì xoá dự án Resolve không khôi phục được.
+- [ ] **E5a [Chat, sau khi khởi động lại app Claude]:** nhờ Claude "lập kế hoạch resolve_setup cho thư mục <dự án>". Đạt khi chỉ in kế hoạch và Claude hỏi bạn trước khi làm.
+- [ ] **E5b [Chat]:** đồng ý, Claude gọi `confirm=true` với tên mới. Đạt khi Resolve có dự án mới đủ clip, proxy gắn đủ. **Chưa thử qua MCP ở chế độ làm thật** (mới thử qua CLI).
+- [ ] **E5c:** đóng Resolve rồi chạy lại E5b để thử nhánh **tự mở Resolve**. **Chưa thử** vì Resolve đang mở.

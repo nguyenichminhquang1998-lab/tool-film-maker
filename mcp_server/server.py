@@ -18,6 +18,7 @@ tu xa, vi no can quyen truy cap o dia that cua may.
 import asyncio
 import json
 import os
+import sys
 import time
 import urllib.error
 import uuid
@@ -683,6 +684,85 @@ async def ask_local_llm(params: AskLocalLlmInput) -> str:
         {"ok": True, "model": params.model.value, "answer": answer, "seconds": round(time.time() - started, 1)},
         ensure_ascii=False,
     )
+
+
+# ============================================================
+# Tool 8: mo Resolve, tao du an, nhap clip, link proxy (xem ke hoach truoc, chi lam khi confirm)
+# ============================================================
+
+RESOLVE_SETUP_PY = os.path.join(REPO_ROOT, "resolve-setup.py")
+
+
+class ResolveSetupInput(BaseModel):
+    """Input cho resolve_setup."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    project_dir: str = Field(
+        ...,
+        description="Duong dan tuyet doi toi thu muc du an (co goc\\ va proxy\\), vd 'D:\\Quang\\2026\\thang 10\\15.10.2026 - Ten du an'.",
+        min_length=3,
+        max_length=500,
+    )
+    confirm: bool = Field(
+        default=False,
+        description="False (mac dinh) = CHI XEM KE HOACH, khong lam gi. True = lam that. Chi dat True SAU KHI Quang da xem ke hoach va dong y.",
+    )
+    resolve_project_name: Optional[str] = Field(
+        default=None,
+        description="Ten du an trong Resolve. Bo trong = ten thu muc du an. Dung khi bi tu choi vi trung ten.",
+        max_length=150,
+    )
+
+
+@mcp.tool(
+    name="resolve_setup",
+    annotations={
+        "title": "Resolve: mo, tao du an, nhap clip, link proxy",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": False,
+    },
+)
+async def resolve_setup(params: ResolveSetupInput) -> str:
+    """Mo DaVinci Resolve (neu chua mo), tao du an Resolve theo thu muc du an, nhap clip trong goc\\ vao Media Pool,
+    link proxy co san trong proxy\\ (chay link-proxy.py), dat che do dung proxy, roi luu du an.
+
+    QUY TRINH BAT BUOC (Quang yeu cau "hoi truoc khi tao du an"):
+    1. Goi voi confirm=false (mac dinh): tool CHI tra ve ke hoach (so clip, so proxy da co, ten du an Resolve, co trung ten khong).
+    2. Dua ke hoach cho Quang, doi Quang dong y.
+    3. Chi khi do moi goi lai voi confirm=true.
+
+    An toan: KHONG BAO GIO ghi de. Neu ten du an Resolve da co, tool tu choi (bi_tu_choi=true) va goi y dung resolve_project_name.
+    Tool KHONG tao proxy (nang GPU, chi lam khi Quang yeu cau, dung proxy-maker.ps1); chi link proxy da co. Neu so_clip_thieu_proxy > 0
+    hay bao Quang. Du an dang mo trong Resolve duoc luu truoc khi chuyen sang du an moi.
+
+    Returns:
+        str: JSON {"ok", "che_do": "ke_hoach" | "da_lam", "ten_du_an_resolve", "so_clip_trong_goc", "so_clip_da_co_proxy",
+        "clip_nhap_duoc", "proxy_moi_link", "clip_co_proxy_kiem_lai_bang_resolve", ...}. ok=false nghia la khong thanh cong:
+        doc "loi"/"ghi_chu", dung noi la da xong.
+    """
+    args = [sys.executable, RESOLVE_SETUP_PY, params.project_dir]
+    if params.confirm:
+        args.append("--yes")
+    if params.resolve_project_name:
+        args += ["--name", params.resolve_project_name]
+    timeout = 360 if params.confirm else 60
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, cwd=REPO_ROOT
+        )
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except asyncio.TimeoutError:
+        proc.kill()
+        return json.dumps({"ok": False, "loi": f"resolve-setup qua {timeout} giay, da dung. Kiem tra Resolve bang tay truoc khi thu lai."}, ensure_ascii=False)
+    lines = [l for l in stdout.decode("utf-8", errors="replace").splitlines() if l.strip()]
+    try:
+        return json.dumps(json.loads(lines[-1]), ensure_ascii=False)
+    except (IndexError, ValueError):
+        tail = stderr.decode("utf-8", errors="replace").strip()[-400:]
+        return json.dumps({"ok": False, "loi": f"Khong doc duoc ket qua resolve-setup (exit {proc.returncode}). {tail}"}, ensure_ascii=False)
 
 
 if __name__ == "__main__":
