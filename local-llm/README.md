@@ -3,7 +3,7 @@
 Mọi thứ ở đây chạy **trên máy, không gửi dữ liệu ra ngoài**. Ollama cài ở `D:\AI\ollama` (bản zip, không đụng ổ C). Model chính: `gemma4:12b`.
 
 ## Phải bật Ollama trước
-Bấm đúp `D:\AI\ollama\1-MO-giao-dien-Ollama.bat` (mở luôn trang chat `http://127.0.0.1:8765/chat.html`). Tắt hẳn: `2-TAT-Ollama.bat`. Gemma chiếm ~9,2GB VRAM khi chạy, không chạy chung được với ComfyUI/Flux.
+Bấm đúp `D:\AI\ollama\1-MO-giao-dien-Ollama.bat` (mở luôn trang chat `http://127.0.0.1:8765/chat.html`). Tắt hẳn: `2-TAT-Ollama.bat`. Gemma chiếm ~9,2GB VRAM khi chạy, không chạy chung được với ComfyUI/Flux. Từ 15/10/2026 model Ollama nằm ở SSD `G:\AI\ollama\models` (script khởi động đã trỏ sẵn; nạp ~6 giây thay vì ~70 giây trên HDD).
 
 ## Các script
 | Script | Làm gì | Chạy |
