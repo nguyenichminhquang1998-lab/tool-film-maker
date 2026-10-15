@@ -95,6 +95,40 @@ def fix_voice(request: str, voice: dict):
     return request, fixed
 
 
+CONTENT_REQUEST = re.compile(r"(viết|soạn)\b.{0,40}\b(bài|caption|status|post|kịch bản)\b|facebook|tiktok|instagram|hashtag")
+EMOJI = re.compile("[\U0001F300-\U0001FAFF☀-➿️]")
+MAX_HASHTAGS = 3  # luat cua Quang (Ho so giong van): khong qua 3 hashtag, khong emoji
+
+
+def clean_post(text: str):
+    """Ep luat cung cua bai viet bang code vi Gemma khong giu duoc gioi han so. Tra ve (van ban moi, [da sua gi])."""
+    fixes = []
+    n_emoji = len(EMOJI.findall(text))
+    if n_emoji:
+        text = EMOJI.sub("", text)
+        fixes.append(f"bỏ {n_emoji} emoji")
+    excess = len(re.findall(r"#\w+", text)) - MAX_HASHTAGS
+    if excess > 0:
+        # chi cat o cac dong TOAN hashtag (cuoi bai); hashtag nam giua cau thi giu nguyen de khong lam cut cau
+        lines = text.split("\n")
+        for i in range(len(lines) - 1, -1, -1):
+            if excess <= 0:
+                break
+            if re.fullmatch(r"\s*(#\w+\s*)+", lines[i]):
+                toks = re.findall(r"#\w+", lines[i])
+                drop = min(excess, len(toks))
+                lines[i] = " ".join(toks[: len(toks) - drop])
+                excess -= drop
+                fixes.append(f"cắt {drop} hashtag")
+        text = "\n".join(lines)
+        if excess > 0:
+            fixes.append(f"CÒN {excess} hashtag nằm giữa câu, cần sửa tay")
+    if fixes:
+        text = re.sub(r"[ \t]+\n", "\n", text)
+        text = re.sub(r"(?<=\S) {2,}", " ", text)
+    return text.strip(), fixes
+
+
 TOOL_VERBS = {"mở": "open_app", "tìm": "find_file"}  # dong tu dau cau -> cong cu hien nhien phai goi
 
 
@@ -255,7 +289,11 @@ async def run_agent(box, request, model=local_llm.DEFAULT_MODEL, max_steps=5, ti
 
     if stopped != "final" and not answer:
         answer = f"(Dừng vì {stopped}, chưa có kết luận.)"
+    answer_raw, post_fixes = answer, []
+    if stopped == "final" and CONTENT_REQUEST.search(user_text.lower()):
+        answer, post_fixes = clean_post(answer)
     return {
+        "answer_raw": answer_raw, "post_fixes": post_fixes,
         "request": request, "model": model, "answer": answer, "stopped": stopped,
         "calls": calls, "trace": trace, "warnings": check_claims(answer, calls), "voice_fixes": voice_fixes,
         "seconds": round(time.monotonic() - started, 1),
@@ -275,6 +313,8 @@ async def _amain(a):
     print(f"\n[{run['stopped']} | {run['seconds']}s | {len(run['calls'])} lệnh]")
     for c in run["calls"]:
         print(f"  - {c['name']} {json.dumps(c['args'], ensure_ascii=False)} -> {'đã chạy' if c['executed'] else 'KHÔNG chạy'}")
+    if run["post_fixes"]:
+        print("  ✂ Đã tự chỉnh bài theo luật của Quang:", "; ".join(run["post_fixes"]), "(bản gốc lưu trong log: answer_raw)")
     for wrong, right in run["voice_fixes"]:
         print(f"  ✎ Từ điển giọng nói: '{wrong}' → '{right}'")
     for w in run["warnings"]:
