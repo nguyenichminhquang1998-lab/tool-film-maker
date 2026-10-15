@@ -13,6 +13,9 @@ Bấm đúp `D:\AI\ollama\1-MO-giao-dien-Ollama.bat` (mở luôn trang chat `htt
 | `xlsx_read.py`, `office_min.py` | Đọc `.xlsx` / ghi `.xlsx`, `.docx` không cần thư viện ngoài (Python 3.12 của máy không có pandas/openpyxl) | được import |
 | `danh-gia/zalo_summarize.py` | Tóm tắt 8 chat Zalo GIẢ, chấm tự động, có tin chứa lệnh ẩn để thử bị lừa | `python -I zalo_summarize.py 0 "<file.md ra>"` |
 | `danh-gia/llm_compare.py`, `llm_eval.py` | So sánh model: tóm tắt, JSON, tính giá, gọi công cụ, định dạng, kiến thức Hải Phòng | `python -I llm_compare.py <model> "<thư mục ra>" [--old]` |
+| `javis_agent.py` | Agent nhỏ: Gemma/Qwen tự chọn và gọi công cụ MCP `tool-film-maker` (tối đa 5 bước, có timeout). Công cụ chỉ-đọc tự chạy; `open_app` chỉ chạy khi thêm `--allow open_app`; `ingest_start` bị giấu hẳn. Log ở `D:\AI\ollama\ket-qua\agent\` | `python -I javis_agent.py "tìm file C8092" [--model qwen3.5:9b] [--allow open_app]` |
+| `danh-gia/agent_eval.py` | Bộ thử agent: 10 ca từ câu lệnh thật + 1 ca bẫy tiêm lệnh qua tên file; chấm chọn đúng công cụ, từ chối đúng, không báo thành công giả. Tự gỡ model khỏi VRAM, dừng nếu VRAM trống < 10GB | `python -I agent_eval.py gemma4:12b` (rồi `qwen3.5:9b`) |
+| `danh-gia/so_tay_eval.py` | Đo tác dụng của sổ tay về Quang (`D:\AI\ollama\so-tay-quang\profile.md`) và từ điển giọng nói (`tu-dien-giong-noi.json`): 4 tình huống, chạy không sổ (A) và có sổ (B), mỗi bên 3 lần. `javis_agent.py --no-profile` tắt cả hai | `python -I so_tay_eval.py` |
 | `do-tai-nguyen/gpu_scenarios.py` (+ `job-*.ps1`) | Đo VRAM/GPU/điện khi chạy LLM + proxy NVENC, có/không `gpu-queue` | `python -I gpu_scenarios.py "<thư mục ra>" S0,S1,S2,S3` |
 
 Dùng `python -I` (Python 3.12 của máy: `C:\Users\My PC\AppData\Local\Programs\Python\Python312\python.exe`). Ngôn ngữ hiển thị là tiếng Việt, mã nguồn comment không dấu.

@@ -19,6 +19,7 @@ import asyncio
 import json
 import os
 import time
+import urllib.error
 import uuid
 from enum import Enum
 from typing import Optional
@@ -27,6 +28,7 @@ from mcp.server.mcpserver import MCPServer
 from pydantic import BaseModel, ConfigDict, Field
 
 import javis_tools
+import local_llm
 
 # ============================================================
 # Hang so
@@ -599,6 +601,88 @@ async def open_app(params: OpenAppInput) -> str:
     """
     result = await asyncio.to_thread(javis_tools.open_app, params.name, javis_tools.load_config())
     return json.dumps(result, ensure_ascii=False)
+
+
+# ============================================================
+# Tool 7: hoi AI local (Gemma/Qwen) mot cau, chi tra loi bang chu
+# ============================================================
+
+
+class LocalModel(str, Enum):
+    """Model local cai san trong Ollama."""
+
+    GEMMA = "gemma4:12b"
+    QWEN = "qwen3.5:9b"
+
+
+class AskLocalLlmInput(BaseModel):
+    """Input cho ask_local_llm."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    prompt: str = Field(
+        ...,
+        description="Yeu cau gui cho AI local. Phai tu day du y (AI local khong thay cuoc tro chuyen nay).",
+        min_length=1,
+        max_length=20000,
+    )
+    system: Optional[str] = Field(
+        default=None,
+        description="Vai tro/quy tac cho AI local, vd 'Tom tat bang tieng Viet, toi da 5 gach dau dong'. Bo trong de dung mac dinh.",
+        max_length=4000,
+    )
+    model: LocalModel = Field(
+        default=LocalModel.GEMMA,
+        description="'gemma4:12b' (mac dinh, tieng Viet tot hon) hoac 'qwen3.5:9b'.",
+    )
+
+
+@mcp.tool(
+    name="ask_local_llm",
+    annotations={
+        "title": "Hoi AI local (Gemma/Qwen)",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": False,
+    },
+)
+async def ask_local_llm(params: AskLocalLlmInput) -> str:
+    """Gui 1 yeu cau cho AI chay tren chinh may nay (Ollama) va nhan lai cau tra loi bang chu.
+
+    CHI tra loi bang chu: AI local o day KHONG goi cong cu, khong doc file, khong mo app. Dung cho viec
+    can dung "tay" local: tom tat, dien giai so lieu, viet nhap prompt. Du lieu goc khong roi khoi may,
+    NHUNG khi ban doc cau tra loi nay thi noi dung do da vao cuoc tro chuyen voi Claude. Neu noi dung
+    nhay cam (tai chinh, hop dong, Zalo khach), dung gui nguyen van, chi hoi dieu can thiet.
+
+    Luu y: Gemma chiem ~9 GB VRAM va nap nguoi mat ~36 giay. Khong goi khi dang chay ComfyUI/Flux/render
+    nang cua Resolve. Chua bat Ollama thi tra loi loi kem cach bat, tool nay KHONG tu bat.
+
+    Returns:
+        str: JSON {"ok": true, "model", "answer", "seconds"} hoac {"ok": false, "error": "..."}.
+    """
+    messages = []
+    if params.system:
+        messages.append({"role": "system", "content": params.system})
+    messages.append({"role": "user", "content": params.prompt})
+    started = time.time()
+    try:
+        r = await asyncio.to_thread(local_llm.chat, messages, params.model.value)
+    except urllib.error.URLError:
+        return json.dumps(
+            {
+                "ok": False,
+                "error": "Khong ket noi duoc Ollama (127.0.0.1:11434). Bat bang D:\\AI\\ollama\\1-MO-giao-dien-Ollama.bat roi thu lai.",
+            },
+            ensure_ascii=False,
+        )
+    except TimeoutError:
+        return json.dumps({"ok": False, "error": "AI local khong tra loi sau 300 giay (co the dang nap model hoac GPU ban)."})
+    answer = (r.get("message", {}).get("content") or "").strip()
+    return json.dumps(
+        {"ok": True, "model": params.model.value, "answer": answer, "seconds": round(time.time() - started, 1)},
+        ensure_ascii=False,
+    )
 
 
 if __name__ == "__main__":
