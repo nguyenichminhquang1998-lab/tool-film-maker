@@ -136,3 +136,54 @@ def open_app(name: str, config: dict) -> dict:
     # Nho explorer.exe (da chay san) mo shortcut de app khong la tien trinh con cua server: server tat thi app khong tat theo
     subprocess.Popen(["explorer.exe", shortcut])
     return {"ok": True, "opened": stem, "note": "Da gui lenh mo; app co the mat vai giay de hien cua so."}
+
+
+READ_EXTENSIONS = (".txt", ".md", ".csv", ".json", ".log", ".srt", ".vtt")
+READ_BLOCKED_WORDS = ("secret", "token", "password", "credential", ".env", ".claude")
+READ_MAX_CHARS = 24000  # ~9.000 token tieng Viet (do 16/10: ~2,7 ky tu/token), con cho cho tra loi trong num_ctx 16384
+
+
+def split_text(text: str, limit: int) -> list:
+    """Chia theo dong, moi phan toi da `limit` ky tu. Dong dai hon `limit` thi cat cung."""
+    chunks, cur = [], ""
+    for line in text.splitlines(keepends=True):
+        while len(line) > limit:
+            if cur:
+                chunks.append(cur)
+                cur = ""
+            chunks.append(line[:limit])
+            line = line[limit:]
+        if len(cur) + len(line) > limit:
+            chunks.append(cur)
+            cur = ""
+        cur += line
+    if cur:
+        chunks.append(cur)
+    return chunks
+
+
+def read_text_file(path: str, max_chars: int = READ_MAX_CHARS, part: int = None) -> dict:
+    """Doc 1 file chu tren may de dua cho AI local. Chi doc. KHONG cat bot im lang: file qua dai thi bao loi
+    kem so phan, goi lai voi part=1..n (cat im lang lam AI tom tat sai ma khong ai biet)."""
+    p = os.path.abspath(os.path.expandvars(path))
+    if os.path.splitext(p)[1].lower() not in READ_EXTENSIONS:
+        return {"ok": False, "error": "Chi doc file chu: " + ", ".join(READ_EXTENSIONS) + ". File nhi phan (xlsx, docx, pdf) can script rieng."}
+    if any(w in p.lower() for w in READ_BLOCKED_WORDS):
+        return {"ok": False, "error": "Duong dan co tu nhay cam (secret, token, password, credential, .env, .claude): khong doc."}
+    if not os.path.isfile(p):
+        return {"ok": False, "error": "Khong thay file: " + p}
+    try:
+        with open(p, encoding="utf-8-sig") as f:
+            text = f.read()
+    except UnicodeDecodeError:
+        return {"ok": False, "error": "File khong phai UTF-8, khong doc de tranh doc sai dau."}
+    chunks = split_text(text, max_chars)
+    n = max(len(chunks), 1)
+    if part is None:
+        if n > 1:
+            return {"ok": False, "error": "File dai %d ky tu, toi da %d moi lan: chia thanh %d phan, goi lai voi part=1..%d." % (len(text), max_chars, n, n)}
+        part = 1
+    if not 1 <= part <= n:
+        return {"ok": False, "error": "File chi co %d phan, khong co part=%d." % (n, part)}
+    body = chunks[part - 1] if chunks else ""
+    return {"ok": True, "path": p, "name": os.path.basename(p), "chars": len(body), "file_chars": len(text), "part": part, "parts": n, "text": body}
