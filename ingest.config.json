@@ -20,7 +20,7 @@
   ],
   "unknownExtensionFallback": "video",
   "rcloneRemotes": {
-    "drive": "gdrive",
+    "drive": "gdrive_up",
     "onedrive": "onedrive"
   },
   "cloudRootFolder": "Quang",
