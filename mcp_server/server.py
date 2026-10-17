@@ -639,7 +639,7 @@ class AskLocalLlmInput(BaseModel):
     file_path: Optional[str] = Field(
         default=None,
         description=(
-            "Duong dan 1 file chu tren may (.txt .md .csv .json .log .srt .vtt, toi da 24000 ky tu). "
+            "Duong dan 1 file chu hoac bang tren may (.txt .md .csv .json .log .srt .vtt .xlsx; xlsx duoc doi thanh chu, moi sheet mot muc; toi da 24000 ky tu moi lan, xlsx va csv 15000). "
             "AI local TU DOC file nay: dua duong dan thay vi chep noi dung vao prompt de do ton token cua Claude. "
             "File qua dai thi bao loi kem so phan, khong cat im lang: goi lai voi `part`."
         ),
@@ -717,6 +717,8 @@ async def ask_local_llm(params: AskLocalLlmInput) -> str:
     }
     if file_info:
         result["file"] = file_info
+    if (r.get("prompt_eval_count") or 0) > 15000:
+        result["canh_bao"] = "Gan day ngu canh (>15.000 token): Ollama co the da cat bot dau vao, ket qua co the thieu. Dung part nho hon."
     return json.dumps(result, ensure_ascii=False)
 
 
@@ -797,6 +799,59 @@ async def resolve_setup(params: ResolveSetupInput) -> str:
     except (IndexError, ValueError):
         tail = stderr.decode("utf-8", errors="replace").strip()[-400:]
         return json.dumps({"ok": False, "loi": f"Khong doc duoc ket qua resolve-setup (exit {proc.returncode}). {tail}"}, ensure_ascii=False)
+
+
+# ============================================================
+# Tool 9: keo ban moi nhat cac file Drive trong danh sach cho phep ve may (chi doc phia Drive)
+# ============================================================
+
+DRIVE_KEO_PY = os.path.join(REPO_ROOT, "drive-keo.py")
+
+
+class DrivePullInput(BaseModel):
+    """Input cho drive_pull."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    ten: Optional[str] = Field(
+        default=None,
+        description="Ten muc trong danh sach cho phep (drive-keo.json), vd 'quan-ly-cong-viec'. Bo trong = keo tat ca. Khong nhan ID hay duong dan tuy y.",
+        max_length=60,
+    )
+
+
+@mcp.tool(
+    name="drive_pull",
+    annotations={
+        "title": "Keo ban moi nhat tu Drive ve may (chi doc phia Drive)",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)
+async def drive_pull(params: DrivePullInput) -> str:
+    """Tai ban moi nhat cac file Drive trong DANH SACH CHO PHEP (hien: bang hach toan + Database, xuat xlsx) ve
+    D:\\Quang\\_drive\\<ten muc>\\, ghi de ban cu. CHI DOC phia Drive (khong sua, khong xoa, khong tai len). Sau do doc bang
+    ask_local_llm(file_path=...) hoac chay local-llm\\job_doi_chieu.py / fin_analyze.py. Goi truoc khi doc neu can ban moi nhat.
+
+    Returns:
+        str: JSON {"ok", "ket_qua": [{"ten", "ok", "files": [{"ten", "duong_dan", "kb", "drive_sua_luc"}], "canh_bao"}]}
+        hoac {"ok": false, "loi": "..."}. Doc "canh_bao" va noi lai cho Quang.
+    """
+    args = [sys.executable, DRIVE_KEO_PY] + ([params.ten] if params.ten else [])
+    try:
+        proc = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, cwd=REPO_ROOT)
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=330)
+    except asyncio.TimeoutError:
+        proc.kill()
+        return json.dumps({"ok": False, "loi": "drive-keo qua 330 giay, da dung."}, ensure_ascii=False)
+    lines = [l for l in stdout.decode("utf-8", errors="replace").splitlines() if l.strip()]
+    try:
+        return json.dumps(json.loads(lines[-1]), ensure_ascii=False)
+    except (IndexError, ValueError):
+        tail = stderr.decode("utf-8", errors="replace").strip()[-400:]
+        return json.dumps({"ok": False, "loi": f"Khong doc duoc ket qua drive-keo (exit {proc.returncode}). {tail}"}, ensure_ascii=False)
 
 
 if __name__ == "__main__":

@@ -204,6 +204,8 @@ def main():
     tom = "Khớp đầy đủ: %d | Lệch: %d | Ghép ước chừng, cần xác nhận: %d | Chỉ có ở hạch toán: %d | Chỉ có ở Database: %d" % (
         len(khop), len(lech_list), len(uoc), len(chi_ht), len(chi_db))
     out.append(tom)
+    if loc:
+        out.append("LƯU Ý: Database tính tháng theo ngày chốt, có thể khác tháng thực hiện; thấy nhiều dòng 'chỉ có ở' thì chạy không --thang để đối chiếu cả năm.")
 
     def dong_lech(info, ghi_chu=""):
         tag, ma, ten, khach, goc, lech, s, th = info

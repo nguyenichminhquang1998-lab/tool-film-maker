@@ -138,9 +138,22 @@ def open_app(name: str, config: dict) -> dict:
     return {"ok": True, "opened": stem, "note": "Da gui lenh mo; app co the mat vai giay de hien cua so."}
 
 
-READ_EXTENSIONS = (".txt", ".md", ".csv", ".json", ".log", ".srt", ".vtt")
+READ_EXTENSIONS = (".txt", ".md", ".csv", ".json", ".log", ".srt", ".vtt", ".xlsx")
 READ_BLOCKED_WORDS = ("secret", "token", "password", "credential", ".env", ".claude")
 READ_MAX_CHARS = 24000  # ~9.000 token tieng Viet (do 16/10: ~2,7 ky tu/token), con cho cho tra loi trong num_ctx 16384
+READ_MAX_CHARS_BY_EXT = {".xlsx": 15000, ".csv": 15000}  # bang so lieu ton token hon chu nhieu (do 17/10: xlsx ~1,4 ky tu/token => ~10.700 token)
+
+
+def xlsx_to_text(path: str) -> str:
+    """Bang .xlsx -> chu: moi sheet mot muc '## Sheet: ten', moi dong cach nhau bang Tab. Ngay Excel giu nguyen so serial."""
+    import sys
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "local-llm"))
+    from xlsx_read import read_xlsx
+    parts = []
+    for sheet, rows in read_xlsx(path).items():
+        parts.append("## Sheet: " + sheet)
+        parts.extend("\t".join("" if c is None else str(c).replace("\n", " ") for c in r) for r in rows)
+    return "\n".join(parts) + "\n"
 
 
 def split_text(text: str, limit: int) -> list:
@@ -167,16 +180,22 @@ def read_text_file(path: str, max_chars: int = READ_MAX_CHARS, part: int = None)
     kem so phan, goi lai voi part=1..n (cat im lang lam AI tom tat sai ma khong ai biet)."""
     p = os.path.abspath(os.path.expandvars(path))
     if os.path.splitext(p)[1].lower() not in READ_EXTENSIONS:
-        return {"ok": False, "error": "Chi doc file chu: " + ", ".join(READ_EXTENSIONS) + ". File nhi phan (xlsx, docx, pdf) can script rieng."}
+        return {"ok": False, "error": "Chi doc file chu va xlsx: " + ", ".join(READ_EXTENSIONS) + ". File nhi phan khac (docx, pdf) can script rieng."}
     if any(w in p.lower() for w in READ_BLOCKED_WORDS):
         return {"ok": False, "error": "Duong dan co tu nhay cam (secret, token, password, credential, .env, .claude): khong doc."}
     if not os.path.isfile(p):
         return {"ok": False, "error": "Khong thay file: " + p}
     try:
-        with open(p, encoding="utf-8-sig") as f:
-            text = f.read()
+        if p.lower().endswith(".xlsx"):
+            text = xlsx_to_text(p)
+        else:
+            with open(p, encoding="utf-8-sig") as f:
+                text = f.read()
     except UnicodeDecodeError:
         return {"ok": False, "error": "File khong phai UTF-8, khong doc de tranh doc sai dau."}
+    except Exception as e:  # noqa: BLE001 - xlsx hong/bi khoa: bao loi gon, khong lam sap tool
+        return {"ok": False, "error": "Khong doc duoc file: %s" % str(e)[:200]}
+    max_chars = min(max_chars, READ_MAX_CHARS_BY_EXT.get(os.path.splitext(p)[1].lower(), max_chars))
     chunks = split_text(text, max_chars)
     n = max(len(chunks), 1)
     if part is None:

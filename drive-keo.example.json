@@ -1,0 +1,13 @@
+{
+  "rclone_remote": "gdrive",
+  "thu_muc_dich": "D:\\Quang\\_drive",
+  "muc": [
+    {
+      "ten": "ten-muc-khong-dau",
+      "mo_ta": "Mo ta ngan: file nao, de lam gi",
+      "folder_id": "ID-thu-muc-Drive (lay tu duong dan thu muc tren Drive)",
+      "include": ["Ten file chinh xac 1.xlsx", "Ten file chinh xac 2.xlsx"],
+      "xuat": "xlsx"
+    }
+  ]
+}

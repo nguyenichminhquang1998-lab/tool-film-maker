@@ -1,4 +1,6 @@
 ingest.secrets.json
+drive-keo.json
+local-llm/__pycache__/
 *.log
 _ingest_logs/
 mcp_server/_mcp_jobs/
