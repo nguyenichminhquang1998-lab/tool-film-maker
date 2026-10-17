@@ -144,6 +144,16 @@ READ_MAX_CHARS = 24000  # ~9.000 token tieng Viet (do 16/10: ~2,7 ky tu/token), 
 READ_MAX_CHARS_BY_EXT = {".xlsx": 15000, ".csv": 15000}  # bang so lieu ton token hon chu nhieu (do 17/10: xlsx ~1,4 ky tu/token => ~10.700 token)
 
 
+def in_roots(path: str, roots: list) -> bool:
+    """Duong dan (da abspath) nam duoi mot trong cac thu muc cho phep. Khong phan biet hoa thuong (Windows)."""
+    p = os.path.normcase(os.path.abspath(path))
+    for r in roots:
+        r = os.path.normcase(os.path.abspath(os.path.expandvars(r)))
+        if p == r or p.startswith(r.rstrip("\\") + "\\"):
+            return True
+    return False
+
+
 def xlsx_to_text(path: str) -> str:
     """Bang .xlsx -> chu: moi sheet mot muc '## Sheet: ten', moi dong cach nhau bang Tab. Ngay Excel giu nguyen so serial."""
     import sys

@@ -20,6 +20,11 @@
     "__pycache__"
   ],
   "searchTimeLimitSeconds": 25,
+  "readRoots": [
+    "D:\\Quang",
+    "D:\\Trung tâm AI",
+    "D:\\AI"
+  ],
   "apps": {
     "resolve": "DaVinci Resolve",
     "davinci": "DaVinci Resolve",

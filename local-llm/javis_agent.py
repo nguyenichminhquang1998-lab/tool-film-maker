@@ -31,7 +31,7 @@ import local_llm  # noqa: E402
 from mcp import ClientSession, StdioServerParameters  # noqa: E402
 from mcp.client.stdio import stdio_client  # noqa: E402
 
-HIDDEN_TOOLS = {"ask_local_llm", "ingest_start", "resolve_setup"}
+HIDDEN_TOOLS = {"ask_local_llm", "ingest_start", "resolve_setup", "drive_ls", "drive_lay"}  # drive_ls/drive_lay: chi Claude, theo yeu cau cua Quang
 MAX_RESULT_CHARS = 4000
 MAX_CALLS_PER_STEP = 3
 DEFAULT_LOG_DIR = r"D:\AI\ollama\ket-qua\agent"
@@ -314,8 +314,10 @@ async def run_agent(box, request, model=local_llm.DEFAULT_MODEL, max_steps=5, ti
                 executed = True
                 ok, text = await box.call(name, args)
             seen.add(key)
-            calls.append({"name": name, "args": args, "executed": executed, "ok": ok, "result": text[:MAX_RESULT_CHARS]})
-            messages.append({"role": "tool", "tool_name": name, "content": text[:MAX_RESULT_CHARS]})
+            if len(text) > MAX_RESULT_CHARS:  # cat im lang lam model tra loi thieu ma khong biet (da gap voi doc_file xlsx: mat sheet cuoi)
+                text = text[:MAX_RESULT_CHARS] + "\n[ĐÃ CẮT: kết quả dài hơn %d ký tự, phần sau KHÔNG được đưa cho bạn; nói rõ điều này khi trả lời]" % MAX_RESULT_CHARS
+            calls.append({"name": name, "args": args, "executed": executed, "ok": ok, "result": text})
+            messages.append({"role": "tool", "tool_name": name, "content": text})
 
     if stopped != "final" and not answer:
         answer = f"(Dừng vì {stopped}, chưa có kết luận.)"
