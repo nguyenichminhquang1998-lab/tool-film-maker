@@ -1,0 +1,14 @@
+{
+  "debrief": ["gemma", "qwen"],
+  "treatment": ["chatgpt", "gemma"],
+  "kich_ban": ["chatgpt", "qwen"],
+  "duyet_kich_ban": ["gemma", "chatgpt"],
+  "hau_ky": ["gemma", "qwen"],
+  "ban_giao": ["gemma", "qwen"],
+  "tu_khoa_da_ngon_ngu": ["chatgpt", "gemma"],
+  "bai_dang": ["chatgpt", "gemma"],
+  "nhin_anh": ["chatgpt", "qwen"],
+  "tim_web": ["chatgpt"],
+  "nghien_cuu_web": ["web"],
+  "chung": ["gemma", "chatgpt"]
+}

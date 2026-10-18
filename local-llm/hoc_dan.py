@@ -96,6 +96,8 @@ async def cmd_chay(a):
     cfgs = [("A không sổ", "", {}), ("B có sổ", profile, voice)]
     if a.luat:
         cfgs.append(("C B+luật thử", profile + "\n\n## Luật đang thử (chưa được Quang duyệt)\n- " + a.luat + "\n", voice))
+    if a.so_tay_thu:  # thu CA SO TAY UNG VIEN (luat da chen dung cho trong so tay): kiem tra vi tri/do dai cua luat, khong chi noi dung
+        cfgs.append(("C sổ ứng viên", open(a.so_tay_thu, encoding="utf-8").read(), voice))
     rows = []
     async with javis_agent.open_toolbox() as box:
         for case in cases:
@@ -114,11 +116,11 @@ async def cmd_chay(a):
     for name, _, _ in cfgs:
         rs = [r for r in rows if r["cfg"] == name]
         print("%-13s %d/%d dat | TB %.0fs/lan" % (name, sum(r["dat"] for r in rs), len(rs), sum(r["giay"] for r in rs) / len(rs)))
-    if a.luat:
+    if a.luat or a.so_tay_thu:
         b = {r["ca"] for r in rows if r["cfg"] == "B có sổ" and not r["dat"]}
-        c = {r["ca"] for r in rows if r["cfg"] == "C B+luật thử" and not r["dat"]}
-        print("Luat thu: ca truot cua B = %s; ca truot cua C = %s -> %s" % (sorted(b) or "khong", sorted(c) or "khong",
-              "LUAT AN TOAN (C khong them ca truot moi)" if c <= b else "LUAT GAY HONG ca %s" % sorted(c - b)))
+        c = {r["ca"] for r in rows if r["cfg"] == cfgs[-1][0] and not r["dat"]}
+        print("Luat/so tay thu: ca truot cua B = %s; ca truot cua C = %s -> %s" % (sorted(b) or "khong", sorted(c) or "khong",
+              "AN TOAN (C khong them ca truot moi)" if c <= b else "GAY HONG ca %s" % sorted(c - b)))
     print("Da luu:", out)
     from agent_eval import unload_all  # noqa: E402 - nha VRAM sau khi do
     unload_all()
@@ -135,7 +137,7 @@ def main():
     t.add_argument("--toi-da-hashtag", type=int); t.add_argument("--nhac-dau-tien"); t.add_argument("--mock", nargs="*")
     c = sub.add_parser("chay")
     c.add_argument("--model", default=local_llm.DEFAULT_MODEL, choices=local_llm.MODELS)
-    c.add_argument("--luat"); c.add_argument("--ca", nargs="*"); c.add_argument("--lap", type=int, default=1); c.add_argument("--gioi-han", type=int, default=180)
+    c.add_argument("--luat"); c.add_argument("--so-tay-thu", help="duong dan file so tay ung vien (luat da chen vao dung cho) de do thay cho C"); c.add_argument("--ca", nargs="*"); c.add_argument("--lap", type=int, default=1); c.add_argument("--gioi-han", type=int, default=180)
     sub.add_parser("xem")
     a = ap.parse_args()
     if a.lenh == "them":
