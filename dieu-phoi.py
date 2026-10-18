@@ -2,7 +2,7 @@
 dieu-phoi.py: hang doi viec + dieu phoi "phong ban AI" cua Javis. Giao viec o MOT noi (Claude hoac Quang goi lenh `giao`), cac luong tu chay song song:
   - nhan vien ChatGPT (chatgpt-lam.py, qua Codex CLI chinh thuc)     - nhan vien Gemma / Qwen 27B (Ollama tren may, 1 model 1 luc, doi card do hoa ranh)
   - nhan vien web (cao-web.py)
-Moi loai viec co nguoi lam chinh + du phong (phong-ban.json). Het han muc / loi ChatGPT thi TU CHUYEN sang AI local (Quang noi 18/10: het token thi chuyen sang local hoac cloud).
+Moi loai viec co nguoi lam chinh + du phong (phong-ban.json); phan tu dang "gemma+chatgpt" = hai nguoi lam SONG SONG, tra ve hai phan. Het han muc / loi ChatGPT thi TU CHUYEN sang AI local (Quang noi 18/10: het token thi chuyen sang local hoac cloud).
 
   python dieu-phoi.py giao --viec <loai> --ten <ten> (--noi-dung "..." | --phieu file.md) [--lam gemma|qwen|chatgpt|web] [--anh f.png] [--url u1 u2]
   python dieu-phoi.py chay                 # tien trinh nen (Quang tu bat: chay-dieu-phoi.bat; Startup khi Quang cho phep). Dong cua so la dung.
@@ -115,12 +115,39 @@ def lam_local(t, ten):
 
 def lam_web(t):
     cmd = [PYTHON, "-I", CAO_WEB, "chay", "--chu-de", t["ten"], "--model", MODELS["gemma"], "--url"] + t.get("url", [])
+    if not t.get("url"): cmd.append("--tim")  # khong co link san: tu tim trang (ChatGPT de xuat, script kiem)
     if t.get("anh_trang"): cmd.append("--anh")
     p = subprocess.run(cmd, capture_output=True, timeout=1800, encoding="utf-8", errors="replace")
     last = [l for l in p.stdout.splitlines() if l.startswith("{")]
     if not last: return None, "cao-web loi: " + (p.stderr or p.stdout)[-200:]
     info = json.loads(last[-1])
     return open(info["tong_hop"], encoding="utf-8").read() if info.get("ok") else None, None if info.get("ok") else "cao-web khong ok"
+
+
+def chay_mot(t, ten):
+    if ten == "chatgpt": return lam_chatgpt(t)
+    if ten in MODELS: return lam_local(t, ten)
+    if ten == "web": return lam_web(t)
+    return None, "khong biet nguoi lam: " + ten
+
+
+def chay_nhom(t, ten):
+    """ten dang "gemma+chatgpt": cac nguoi lam chay SONG SONG, ket qua xep thanh tung phan (moi ben sot loi khac nhau; Claude gop)."""
+    ten_ds = [{"q27": "qwen"}.get(x, x) for x in ten.split("+")]
+    kq = {}
+    def lam(x):
+        try: kq[x] = chay_mot(t, x)
+        except Exception as e:  # noqa: BLE001
+            kq[x] = (None, "ngoai le: %r" % e)
+    th = [threading.Thread(target=lam, args=(x,)) for x in ten_ds]
+    for x in th: x.start()
+    for x in th: x.join()
+    ok = [x for x in ten_ds if kq[x][0]]
+    if not ok:
+        return None, "; ".join("%s: %s" % (x, kq[x][1]) for x in ten_ds)
+    phan = ["## " + x.capitalize() + chr(10) * 2 + kq[x][0] for x in ok]
+    phan += ["## %s: KHONG LAM DUOC (%s)" % (x.capitalize(), kq[x][1]) for x in ten_ds if x not in ok]
+    return (chr(10) * 2).join(phan), None
 
 
 def xu_ly(t):
@@ -130,10 +157,7 @@ def xu_ly(t):
     for ten in chuoi:
         ten = {"q27": "qwen"}.get(ten, ten)
         t0 = time.time()
-        if ten == "chatgpt": kq, loi = lam_chatgpt(t)
-        elif ten in MODELS: kq, loi = lam_local(t, ten)
-        elif ten == "web": kq, loi = lam_web(t)
-        else: kq, loi = None, "khong biet nguoi lam: " + ten
+        kq, loi = chay_nhom(t, ten) if "+" in ten else chay_mot(t, ten)
         nhat.append("%s: %s (%.0fs)" % (ten, "ok" if kq else loi, time.time() - t0))
         if kq:
             return {"nguoi_lam": ten, "ket_qua": kq, "nhat_ky": nhat}
@@ -148,7 +172,7 @@ def luong(loai):
         for t in ds("hang-doi"):
             chinh = t["lam"] if t.get("lam") else pb().get(t["viec"], ["gemma"])[0]
             chinh = {"q27": "qwen"}.get(chinh, chinh)
-            mine = {"chatgpt": "gpt", "web": "web"}.get(chinh, "local")
+            mine = {"chatgpt": "gpt", "web": "web"}.get(chinh, "local")  # nhom "a+b" di luong local
             if t.get("lam") is None and chinh == "chatgpt" and time.time() < _state["gpt_het_han_den"]:
                 mine = "local"  # ChatGPT dang nghi: viec chuyen cho luong local
             if mine == loai:

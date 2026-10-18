@@ -2,7 +2,7 @@
   "debrief": ["gemma", "qwen"],
   "treatment": ["chatgpt", "gemma"],
   "kich_ban": ["chatgpt", "qwen"],
-  "duyet_kich_ban": ["gemma", "chatgpt"],
+  "duyet_kich_ban": ["gemma+chatgpt", "qwen"],
   "hau_ky": ["gemma", "qwen"],
   "ban_giao": ["gemma", "qwen"],
   "tu_khoa_da_ngon_ngu": ["chatgpt", "gemma"],
