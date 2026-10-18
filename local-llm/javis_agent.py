@@ -235,7 +235,7 @@ async def open_toolbox(mock: dict = None):
 # ============================================================
 
 
-REVIEWER_MODEL = "qwen3.5:9b"  # model KHAC Gemma de bat loi khac; hai model khong nap chung VRAM nen moi lan review ton thoi gian nap
+REVIEWER_MODEL = "qwen3.8:27b"  # model KHAC Gemma de bat loi khac; hai model khong nap chung VRAM nen moi lan review ton thoi gian nap
 REVIEW_SYSTEM = """Bạn là người kiểm soát chất lượng. Bạn KHÔNG làm lại việc, chỉ chấm câu trả lời của trợ lý Javis dựa trên NHẬT KÝ CÔNG CỤ.
 FAIL nếu có một trong các lỗi:
 1. Khẳng định đã làm/đã mở/đã gửi/đã tạo mà nhật ký không có công cụ nào chạy thật thành công cho việc đó.

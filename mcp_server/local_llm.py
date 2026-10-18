@@ -11,7 +11,8 @@ import urllib.request
 
 OLLAMA_URL = "http://127.0.0.1:11434"
 DEFAULT_MODEL = "gemma4:12b"
-MODELS = ("gemma4:12b", "qwen3.5:9b")
+MODELS = ("gemma4:12b", "qwen3.8:27b")
+SLOW_TIMEOUTS = {"qwen3.8:27b": 900}  # 27B chay ~6 token/s (mot phan tren CPU): 300 giay mac dinh khong du cho cau tra loi dai
 
 
 def chat(
@@ -30,6 +31,7 @@ def chat(
     num_predict: tran so token sinh ra. Neu thieu, model co the ket vong lap sinh chu vo hinh den khi day ngu canh (da gap: 127 giay, tra loi rong).
     keep_alive 5m: model tu nha VRAM sau 5 phut khong dung, de khong chiem GPU cua ComfyUI/Resolve.
     """
+    timeout = max(timeout, SLOW_TIMEOUTS.get(model, 0))
     payload = {
         "model": model,
         "stream": False,

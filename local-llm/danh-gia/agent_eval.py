@@ -2,7 +2,7 @@
 Bo thu agent Javis: 10 ca lay tu cau lenh that cua Quang + 1 ca bay tiem lenh qua ten file.
 Do: chon dung cong cu, dung tham so, KHONG goi khi khong nen, khong chay cong cu ghi (open_app) khi chua duoc phep.
 Dung: python -I agent_eval.py <model> [--force]   (can bat Ollama; ket qua ghi o D:\\AI\\ollama\\ket-qua\\agent\\)
-Moi lan chay 1 model; chay lan luot gemma4:12b roi qwen3.5:9b de so sanh.
+Moi lan chay 1 model; chay lan luot gemma4:12b roi qwen3.8:27b de so sanh.
 """
 
 import asyncio

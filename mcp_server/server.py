@@ -613,7 +613,7 @@ class LocalModel(str, Enum):
     """Model local cai san trong Ollama."""
 
     GEMMA = "gemma4:12b"
-    QWEN = "qwen3.5:9b"
+    QWEN = "qwen3.8:27b"
 
 
 class AskLocalLlmInput(BaseModel):
@@ -634,7 +634,7 @@ class AskLocalLlmInput(BaseModel):
     )
     model: LocalModel = Field(
         default=LocalModel.GEMMA,
-        description="'gemma4:12b' (mac dinh, tieng Viet tot hon) hoac 'qwen3.5:9b'.",
+        description="'gemma4:12b' (mac dinh, nhanh, dung cho viec hang ngay) hoac 'qwen3.8:27b' (cham 6-8 lan nhung ky hon: nguoi duyet, cham anh sang/toi, viec can chinh xac hon toc do).",
     )
     file_path: Optional[str] = Field(
         default=None,
@@ -649,6 +649,13 @@ class AskLocalLlmInput(BaseModel):
         default=None,
         description="Chi dung khi file_path dai hon 24000 ky tu: doc phan thu may (1..n). Thong bao loi cho biet n.",
         ge=1,
+    )
+    think: bool = Field(
+        default=False,
+        description=(
+            "True = cho AI local 'nghi' truoc khi tra loi (cham hon nhieu: Qwen 27B nghi ~1000-1400 token, moi cau mat 1-2 phut). "
+            "Chi bat cho viec kho ma ket qua kiem duoc (vd viet script Photoshop/After Effects); da thu: script Adobe chi dung khi Qwen 27B bat nghi."
+        ),
     )
 
 
@@ -671,8 +678,9 @@ async def ask_local_llm(params: AskLocalLlmInput) -> str:
     NHUNG khi ban doc cau tra loi nay thi noi dung do da vao cuoc tro chuyen voi Claude. Neu noi dung
     nhay cam (tai chinh, hop dong, Zalo khach), dung gui nguyen van, chi hoi dieu can thiet.
 
-    Luu y: Gemma chiem ~9 GB VRAM va nap nguoi mat ~36 giay. Khong goi khi dang chay ComfyUI/Flux/render
-    nang cua Resolve. Chua bat Ollama thi tra loi loi kem cach bat, tool nay KHONG tu bat.
+    Luu y: Gemma chiem ~9 GB VRAM va nap nguoi mat ~36 giay. Qwen 27B (~17 GB, mot phan chay bang CPU) nap ~18 giay
+    roi sinh chu ~6-7 token/s: chi dung khi viec can ky hon nhanh, va khong goi khi can tra loi ngay. Khong goi khi dang
+    chay ComfyUI/Flux/render nang cua Resolve. Chua bat Ollama thi tra loi loi kem cach bat, tool nay KHONG tu bat.
 
     Returns:
         str: JSON {"ok": true, "model", "answer", "seconds"} hoac {"ok": false, "error": "..."}.
@@ -696,7 +704,7 @@ async def ask_local_llm(params: AskLocalLlmInput) -> str:
     messages.append({"role": "user", "content": user_content})
     started = time.time()
     try:
-        r = await asyncio.to_thread(local_llm.chat, messages, params.model.value)
+        r = await asyncio.to_thread(local_llm.chat, messages, params.model.value, None, params.think, 0.3, 16384, 300, 8192 if params.think else 4096)
     except urllib.error.URLError:
         return json.dumps(
             {
@@ -706,7 +714,7 @@ async def ask_local_llm(params: AskLocalLlmInput) -> str:
             ensure_ascii=False,
         )
     except TimeoutError:
-        return json.dumps({"ok": False, "error": "AI local khong tra loi sau 300 giay (co the dang nap model hoac GPU ban)."})
+        return json.dumps({"ok": False, "error": "AI local khong tra loi trong thoi han cho phep (300 giay, Qwen 27B 900 giay; co the dang nap model hoac GPU ban)."})
     answer = (r.get("message", {}).get("content") or "").strip()
     result = {
         "ok": True,
