@@ -1,5 +1,7 @@
 """Doi chieu job giua bang hach toan va Database (CHI DOC: khong ghi file nguon, khong noi mang, khong dung LLM de so so).
-Dung: python job_doi_chieu.py <hach_toan.xlsx> <database.xlsx> [--thang 8,9,10] [--nam 2026] [--ra bao_cao.md]
+Dung: python job_doi_chieu.py <hach_toan.xlsx> <database.xlsx> [--thang 8,9,10] [--nam 2026] [--ra bao_cao.md] [--y-kien-thu-hai [MODEL]]
+--y-kien-thu-hai: voi cac cap "ghep uoc chung" (do code khong chac), hoi them AI local (mac dinh qwen3.8:27b; Quang cham 18/10 thay Qwen dung hon Gemma)
+"cung job / khac job / khong chac" kem ly do. CHI THAM KHAO de Quang xac nhan: so tien/ngay van do code so, AI khong sua gi, khong tu ket luan.
 
 Quang xuat 2 Google Sheet ra .xlsx (File > Tai xuong > .xlsx) roi chay lenh nay. Claude chi nhan bang tom tat cac dong LECH
 (toi da MAX_DONG dong moi muc); chi tiet day du ghi ra file bao cao. Khong co cot Ma Job o bang hach toan nen ghep theo
@@ -128,6 +130,39 @@ def diem(h, j):
     return min(s, 1.3)
 
 
+Y_KIEN_SYS = ("Bạn là trợ lý đối chiếu danh sách job quay dựng. Hai bảng ghi cùng một job nhưng tên viết khác nhau, hoặc là hai job khác nhau. "
+              "Chỉ dựa vào dữ liệu được đưa, không đoán thêm. Trả lời đúng một JSON: {\"ket_luan\": \"cung_job\" | \"khac_job\" | \"khong_chac\", \"ly_do\": \"một câu ngắn\"}. "
+              "Chọn khong_chac nếu bằng chứng chưa đủ.")
+Y_KIEN_NHAN = {"cung_job": "CÙNG job", "khac_job": "KHÁC job", "khong_chac": "không chắc"}
+
+
+def hoi_y_kien(uoc, model):
+    """Y kien thu hai cua AI local cho cac cap ghep uoc chung. Tra ve {ma: 'chuoi them vao dong'}. Loi mang/model thi bo qua, khong lam hong bao cao."""
+    import json, urllib.request
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "mcp_server"))
+    try:
+        import local_llm
+    except Exception as e:  # noqa: BLE001
+        print("Khong nap duoc local_llm, bo qua y kien thu hai: %s" % e)
+        return {}
+    out = {}
+    for tag, ma, ten, khach, goc, lech, s, th in uoc:
+        user = ("Bảng hạch toán: %s\nDatabase: \"%s\" (khách: %s, tháng %d)\nCác con số (doanh thu, ngày công, khấu hao) giữa hai dòng: %s.\nHai dòng này có phải cùng một job không?"
+                % (tag, ten, khach, th, "có chỗ khác nhau" if lech else "TRÙNG NHAU"))
+        try:
+            r = local_llm.chat([{"role": "system", "content": Y_KIEN_SYS}, {"role": "user", "content": user}], model, None, False, 0.0, 8192, 300, 200)
+            m = re.search(r"\{.*\}", r["message"].get("content") or "", re.S)
+            d = json.loads(m.group(0))
+            out[ma] = "  ↳ ý kiến thứ hai (%s, chỉ tham khảo): %s, %s" % (model, Y_KIEN_NHAN.get(d.get("ket_luan"), "?"), str(d.get("ly_do", ""))[:160])
+        except Exception as e:  # noqa: BLE001
+            out[ma] = "  ↳ ý kiến thứ hai: không lấy được (%s)" % str(e)[:60]
+    try:  # nha VRAM
+        urllib.request.urlopen(urllib.request.Request(local_llm.OLLAMA_URL + "/api/generate", json.dumps({"model": model, "keep_alive": 0}).encode(), {"Content-Type": "application/json"}), timeout=60).read()
+    except Exception:  # noqa: BLE001
+        pass
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description="Doi chieu bang hach toan voi Database (chi doc)")
     ap.add_argument("hach_toan")
@@ -135,6 +170,7 @@ def main():
     ap.add_argument("--thang", help="vd 8,9,10 (mac dinh: tat ca cac thang co trong bang hach toan)")
     ap.add_argument("--nam", type=int, help="nam neu khong doc duoc tu cot ngay thuc hien")
     ap.add_argument("--ra", help="duong dan file bao cao .md day du")
+    ap.add_argument("--y-kien-thu-hai", nargs="?", const="qwen3.8:27b", default=None, metavar="MODEL", help="hoi AI local them y kien cho cac cap ghep uoc chung (chi tham khao)")
     a = ap.parse_args()
 
     ht = fin_facts.load(a.hach_toan)
@@ -216,7 +252,8 @@ def main():
     if lech_list:
         sec.append(("LỆCH (job đã ghép chắc, số khác nhau)", [dong_lech(i, "; doanh thu so với " + i[4]) for i in lech_list]))
     if uoc:
-        sec.append(("GHÉP ƯỚC CHỪNG, CẦN QUANG XÁC NHẬN (rồi mới xét lệch)", [dong_lech(i) for i in uoc]))
+        y_kien = hoi_y_kien(uoc, a.y_kien_thu_hai) if a.y_kien_thu_hai else {}
+        sec.append(("GHÉP ƯỚC CHỪNG, CẦN QUANG XÁC NHẬN (rồi mới xét lệch)", [dong_lech(i) + ("\n" + y_kien[i[1]] if i[1] in y_kien else "") for i in uoc]))
     if chi_ht:
         sec.append(("CHỈ CÓ Ở HẠCH TOÁN", ["- [%s] %s" % t for t in chi_ht]))
     if chi_db:

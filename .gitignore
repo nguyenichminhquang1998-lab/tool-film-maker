@@ -6,3 +6,4 @@ _ingest_logs/
 mcp_server/_mcp_jobs/
 mcp_server/__pycache__/
 mcp_server/.venv/
+local-llm/danh-gia/__pycache__/
